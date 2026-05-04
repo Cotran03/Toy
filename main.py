@@ -4,7 +4,7 @@ from discord.ext import commands
 import os
 
 # Import Config
-from config import TOKEN, GUILD_ID, ADMIN_COMMAND_CHANNEL
+from config import TOKEN, GUILD_ID
 
 # Import DB
 from db.database import init_db
@@ -44,9 +44,6 @@ async def on_ready():
 # Admin Command: &sync
 @bot.command(name="sync")
 async def sync(ctx: commands.Context):
-    if ctx.channel.id != ADMIN_COMMAND_CHANNEL:
-        await ctx.message.delete()
-        return
 
     if not ctx.author.guild_permissions.administrator:
         await ctx.message.delete()
