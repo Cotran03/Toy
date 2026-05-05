@@ -15,27 +15,34 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """봇 시작 시 한 번 호출 — 테이블 없으면 생성."""
+    """봇 시작 시 한 번 호출 — 테이블 없으면 생성, 컬럼 없으면 추가."""
     with get_connection() as conn:
         cursor = conn.cursor()
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id          INTEGER PRIMARY KEY,
-                balance          INTEGER NOT NULL DEFAULT 0,
-                post_count       INTEGER NOT NULL DEFAULT 0,
-                last_reward_date TEXT,
-                is_banned        INTEGER NOT NULL DEFAULT 0
+                user_id           INTEGER PRIMARY KEY,
+                balance           INTEGER NOT NULL DEFAULT 0,
+                post_count        INTEGER NOT NULL DEFAULT 0,
+                last_reward_date  TEXT,
+                is_banned         INTEGER NOT NULL DEFAULT 0,
+                promote_count     INTEGER NOT NULL DEFAULT 0,
+                last_promote_date TEXT
             )
         """)
 
-        # 기존 DB에 is_banned 컬럼 없으면 추가 (DB 유지한 채로 업데이트 시 대응)
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER NOT NULL DEFAULT 0")
-        except sqlite3.OperationalError:
-            pass  # 이미 있으면 무시
+        # 기존 DB에 컬럼이 없는 경우 추가 (DB 유지한 채로 업데이트 시 대응)
+        migrations = [
+            "ALTER TABLE users ADD COLUMN is_banned         INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN promote_count     INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN last_promote_date TEXT",
+        ]
+        for sql in migrations:
+            try:
+                cursor.execute(sql)
+            except sqlite3.OperationalError:
+                pass  # 이미 있으면 무시
 
-        # 경고 1건 = 1행. warned_at 기준 30일 지난 행 삭제 → 자동 차감
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS warnings (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,6 +191,38 @@ def is_banned(user_id: int) -> bool:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Promote (홍보 횟수)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def get_promote_info(user_id: int) -> tuple[int, str | None]:
+    """오늘 홍보 횟수 반환. 날짜가 바뀌었으면 0으로 처리."""
+    ensure_user(user_id)
+    user = get_user(user_id)
+    last_date = user["last_promote_date"]
+    today = str(date.today())
+    if last_date != today:
+        return 0, last_date
+    return user["promote_count"], last_date
+
+
+def increment_promote(user_id: int) -> int:
+    """홍보 횟수 1 증가. 날짜가 바뀌었으면 1로 초기화. 변경 후 오늘 횟수 반환."""
+    ensure_user(user_id)
+    today = str(date.today())
+    current_count, last_date = get_promote_info(user_id)
+
+    new_count = 1 if last_date != today else current_count + 1
+
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE users SET promote_count = ?, last_promote_date = ? WHERE user_id = ?",
+            (new_count, today, user_id)
+        )
+        conn.commit()
+    return new_count
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Warnings (경고)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -240,7 +279,6 @@ def expire_old_warnings() -> list[tuple[int, int]]:
     """
     cutoff = datetime.now() - timedelta(days=30)
     with get_connection() as conn:
-        # ban 상태가 아닌 유저의 만료 경고만 집계
         rows = conn.execute("""
             SELECT w.user_id, COUNT(*) as cnt
             FROM warnings w
@@ -250,7 +288,6 @@ def expire_old_warnings() -> list[tuple[int, int]]:
             GROUP BY w.user_id
         """, (cutoff.isoformat(),)).fetchall()
 
-        # ban 상태가 아닌 유저의 만료 경고만 삭제
         conn.execute("""
             DELETE FROM warnings
             WHERE warned_at <= ?

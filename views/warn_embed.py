@@ -20,12 +20,12 @@ def warn_notice_embed(
         timestamp=datetime.now(timezone.utc),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="대상",           value=f"{member} (`{member.id}`)",       inline=False)
-    embed.add_field(name="이번 경고 횟수", value=f"`{added}회`",                    inline=True)
-    embed.add_field(name="누적 경고 횟수", value=f"`{total}회`",                    inline=True)
-    embed.add_field(name="사유",           value=reason,                            inline=False)
-    embed.add_field(name="제재",           value=f"`{punishment}`",                 inline=True)
-    embed.add_field(name="처리자",         value=f"{moderator} (`{moderator.id}`)", inline=True)
+    embed.add_field(name="대상",           value=f"{member}",       inline=False)
+    embed.add_field(name="이번 경고 횟수", value=f"`{added}회`",    inline=True)
+    embed.add_field(name="누적 경고 횟수", value=f"`{total}회`",    inline=True)
+    embed.add_field(name="사유",           value=reason,            inline=False)
+    embed.add_field(name="제재",           value=f"`{punishment}`", inline=True)
+    embed.add_field(name="처리자",         value=f"{moderator}",    inline=True)
     return embed
 
 
@@ -41,10 +41,10 @@ def warnoff_notice_embed(
         timestamp=datetime.now(timezone.utc),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="대상",           value=f"{member} (`{member.id}`)",       inline=False)
-    embed.add_field(name="차감 횟수",      value="`1회`",                           inline=True)
-    embed.add_field(name="누적 경고 횟수", value=f"`{total}회`",                    inline=True)
-    embed.add_field(name="처리자",         value=f"{moderator} (`{moderator.id}`)", inline=True)
+    embed.add_field(name="대상",           value=f"{member}",   inline=False)
+    embed.add_field(name="차감 횟수",      value="`1회`",       inline=True)
+    embed.add_field(name="누적 경고 횟수", value=f"`{total}회`",inline=True)
+    embed.add_field(name="처리자",         value=f"{moderator}",inline=True)
     return embed
 
 
