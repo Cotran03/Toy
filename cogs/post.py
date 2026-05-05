@@ -52,7 +52,7 @@ class Post(commands.Cog):
 
         # 권한 체크: 포스트 게시자 또는 POST_END_ROLE 보유자
         is_owner      = channel.owner_id == member.id
-        is_end_role   = any(role.id == POST_END_ROLES for role in member.roles)
+        is_end_role   = any(role.id in POST_END_ROLES for role in member.roles)
 
         if not is_owner and not is_end_role:
             await interaction.response.send_message(embed=no_permission_embed(), ephemeral=True)
