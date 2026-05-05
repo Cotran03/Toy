@@ -7,7 +7,7 @@ from discord.ext import commands
 from config import (
     ROLE_UNVERIFIED,
     ROLE_SCHOLAR,
-    VERIFY_CHANNEL_ID,
+    VERIFY_CHANNEL,
     VERIFY_MESSAGE_ID,
 )
 from utils.send_log import send_log, send_system_log
@@ -61,7 +61,7 @@ class Verify(commands.Cog):
             print("[verify] VERIFY_MESSAGE_ID 미설정 — &sendverify로 메시지를 먼저 전송하세요.")
             return
 
-        channel = self.bot.get_channel(VERIFY_CHANNEL_ID)
+        channel = self.bot.get_channel(VERIFY_CHANNEL)
         if channel is None:
             print("[verify] 인증 채널을 찾을 수 없습니다.")
             return
@@ -83,9 +83,9 @@ class Verify(commands.Cog):
             await ctx.message.delete()
             return
 
-        channel = self.bot.get_channel(VERIFY_CHANNEL_ID)
+        channel = self.bot.get_channel(VERIFY_CHANNEL)
         if channel is None:
-            await ctx.send("인증 채널을 찾을 수 없습니다. VERIFY_CHANNEL_ID를 확인하세요.", delete_after=5)
+            await ctx.send("인증 채널을 찾을 수 없습니다. VERIFY_CHANNEL를 확인하세요.", delete_after=5)
             await ctx.message.delete()
             return
 
