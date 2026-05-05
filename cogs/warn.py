@@ -62,7 +62,11 @@ class Warn(commands.Cog):
             for user_id, count in expired:
                 remaining = get_warning_count(user_id)
                 if notice_channel:
-                    await notice_channel.send(embed=warn_expire_notice_embed(user_id, count, remaining))
+                    try:
+                        user = await self.bot.fetch_user(user_id)
+                    except discord.NotFound:
+                        user = None
+                    await notice_channel.send(embed=warn_expire_notice_embed(user, count, remaining))
 
             await send_system_log(self.bot, "경고 만료 처리", f"총 {total_removed}건 자동 삭제 ({len(expired)}명)")
         except Exception as e:

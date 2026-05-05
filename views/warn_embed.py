@@ -48,30 +48,19 @@ def warnoff_notice_embed(
     return embed
 
 
-def warn_expire_notice_embed(user_id: int, count: int, total: int) -> discord.Embed:
+def warn_expire_notice_embed(user: discord.User | None, count: int, total: int) -> discord.Embed:
     """경고 만료 시 WARN_NOTICE_CHANNEL에 유저별로 전송되는 Embed."""
+    user_value = str(user) if user else "알 수 없음"
     embed = discord.Embed(
         title="⏰ 경고 만료",
         description="30일 경과로 인한 자동 차감",
         color=0x95A5A6,
         timestamp=datetime.now(timezone.utc),
     )
-    embed.add_field(name="대상 ID",        value=f"`{user_id}`", inline=False)
+    embed.add_field(name="대상",           value=f"`{user_value}`", inline=False)
     embed.add_field(name="만료된 경고",    value=f"`{count}회`", inline=True)
     embed.add_field(name="남은 경고 횟수", value=f"`{total}회`", inline=True)
     embed.set_footer(text="시스템 자동 처리")
-    return embed
-
-
-def warn_kicked_dm_embed(guild_name: str, invite_url: str) -> discord.Embed:
-    """추방된 유저에게 warnoff 시 DM으로 전송되는 재참가 안내 Embed."""
-    embed = discord.Embed(
-        title="✅ 경고가 차감되었습니다",
-        description=f"**{guild_name}** 서버에서 경고가 1회 차감되었습니다.\n아래 링크로 다시 참가할 수 있습니다.",
-        color=0x57F287,
-        timestamp=datetime.now(timezone.utc),
-    )
-    embed.add_field(name="초대 링크", value=invite_url, inline=False)
     return embed
 
 
