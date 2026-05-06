@@ -58,7 +58,7 @@ async def sync(ctx: commands.Context):
 
 # Admin Command: &reload
 @bot.command(name="reload")
-async def reloadall(ctx: commands.Context):
+async def reload(ctx: commands.Context):
     if not ctx.author.guild_permissions.administrator:
         await ctx.message.delete()
         return

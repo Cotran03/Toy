@@ -19,9 +19,9 @@ class Etc(commands.Cog):
             await send_log(self.bot, ctx.author, "&clear", "권한 없는 사용자가 명령어 사용 시도")
             return
 
-        if amount is None or amount < 1:
+        if amount is None or amount < 1 or amount > 100:
             await ctx.message.delete()
-            await send_log(self.bot, ctx.author, "&clear", "인자 누락 또는 잘못된 값 — 사용법: &clear [횟수]")
+            await send_log(self.bot, ctx.author, "&clear", "인자 누락 또는 잘못된 값 — 사용법: &clear [횟수](최대 100개)")
             return
 
         await ctx.message.delete()
