@@ -11,7 +11,7 @@ from config import (
     PROMOTE_CHANNEL, PROMOTE_DAILY_LIMIT,
     TAG_ONGOING, TAG_ENDED,
 )
-from db.database import ensure_user, get_promote_info, increment_promote
+from db.database import ensure_user, get_promote_info, increment_promote, increment_end_count
 from utils.send_log import send_log
 from views.post_embed import (
     end_embed,
@@ -76,6 +76,7 @@ class Post(commands.Cog):
         await interaction.response.send_message(embed=end_embed())
         await channel.edit(applied_tags=new_tags, locked=True, archived=True)
 
+        increment_end_count(member.id)
         await send_log(self.bot, member, "/end", f"포스트 '{channel.name}' 종료")
 
     # ── Command: /promote ────────────────────────

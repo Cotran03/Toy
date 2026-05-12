@@ -21,21 +21,25 @@ def init_db() -> None:
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id           INTEGER PRIMARY KEY,
-                balance           INTEGER NOT NULL DEFAULT 0,
-                post_count        INTEGER NOT NULL DEFAULT 0,
-                last_reward_date  TEXT,
-                is_banned         INTEGER NOT NULL DEFAULT 0,
-                promote_count     INTEGER NOT NULL DEFAULT 0,
-                last_promote_date TEXT
+                user_id              INTEGER PRIMARY KEY,
+                balance              INTEGER NOT NULL DEFAULT 0,
+                post_count           INTEGER NOT NULL DEFAULT 0,
+                end_count            INTEGER NOT NULL DEFAULT 0,
+                promote_count        INTEGER NOT NULL DEFAULT 0,
+                total_promote_count  INTEGER NOT NULL DEFAULT 0,
+                last_reward_date     TEXT,
+                last_promote_date    TEXT,
+                is_banned            INTEGER NOT NULL DEFAULT 0
             )
         """)
 
         # 기존 DB에 컬럼이 없는 경우 추가 (DB 유지한 채로 업데이트 시 대응)
         migrations = [
-            "ALTER TABLE users ADD COLUMN is_banned         INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN promote_count     INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN last_promote_date TEXT",
+            "ALTER TABLE users ADD COLUMN is_banned            INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN promote_count        INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN last_promote_date    TEXT",
+            "ALTER TABLE users ADD COLUMN end_count            INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN total_promote_count  INTEGER NOT NULL DEFAULT 0",
         ]
         for sql in migrations:
             try:
@@ -169,6 +173,24 @@ def increment_post_count(user_id: int) -> int:
     return get_post_count(user_id)
 
 
+def get_end_count(user_id: int) -> int:
+    """종료한 포스트 수 조회."""
+    user = get_user(user_id)
+    return user["end_count"] if user else 0
+
+
+def increment_end_count(user_id: int) -> int:
+    """종료한 포스트 수 1 증가. 변경 후 종료 수 반환."""
+    ensure_user(user_id)
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE users SET end_count = end_count + 1 WHERE user_id = ?",
+            (user_id,)
+        )
+        conn.commit()
+    return get_end_count(user_id)
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Ban
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -205,6 +227,12 @@ def get_promote_info(user_id: int) -> tuple[int, str | None]:
     return user["promote_count"], last_date
 
 
+def get_total_promote_count(user_id: int) -> int:
+    """전체 홍보 사용 수 조회."""
+    user = get_user(user_id)
+    return user["total_promote_count"] if user else 0
+
+
 def increment_promote(user_id: int) -> int:
     """홍보 횟수 1 증가. 날짜가 바뀌었으면 1로 초기화. 변경 후 오늘 횟수 반환."""
     ensure_user(user_id)
@@ -215,7 +243,7 @@ def increment_promote(user_id: int) -> int:
 
     with get_connection() as conn:
         conn.execute(
-            "UPDATE users SET promote_count = ?, last_promote_date = ? WHERE user_id = ?",
+            "UPDATE users SET promote_count = ?, total_promote_count = total_promote_count + 1, last_promote_date = ? WHERE user_id = ?",
             (new_count, today, user_id)
         )
         conn.commit()
