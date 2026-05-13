@@ -9,7 +9,7 @@ from datetime import datetime
 from utils.send_log import send_log
 from views.etc_embed import info_embed
 
-from config import GUILD_ID, ROLE_INFO_ADVANCED, ROLE_SHOP_ACCESS
+from config import GUILD_ID, ROLE_INFO_ADVANCED
 from db.database import (
     ensure_user,
     get_post_count,
@@ -58,7 +58,6 @@ class Etc(commands.Cog):
         ensure_user(member.id)
 
         is_advanced = any(role.id == ROLE_INFO_ADVANCED for role in member.roles)
-        has_shop_access = any(role.id == ROLE_SHOP_ACCESS for role in member.roles)
 
         joined_at = getattr(member, "joined_at", None)
         if joined_at is None:
@@ -76,7 +75,6 @@ class Etc(commands.Cog):
             "joined_text": joined_text,
             "elapsed_text": elapsed_text,
             "is_advanced": is_advanced,
-            "has_shop_access": has_shop_access,
             "post_count": get_post_count(member.id),
             "end_count": get_end_count(member.id),
             "total_promote_count": get_total_promote_count(member.id),
