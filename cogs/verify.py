@@ -37,6 +37,7 @@ class VerifyView(discord.ui.View):
                 await member.remove_roles(unverified_role)
             if scholar_role:
                 await member.add_roles(scholar_role)
+                send_log(self.bot, member, "인증 성공", "학자 역할 부여")
         except discord.Forbidden:
             await interaction.response.send_message("역할 부여에 실패했습니다. 관리자에게 문의해주세요.", ephemeral=True)
             return
