@@ -17,6 +17,7 @@ def info_embed(member: discord.Member, info: dict) -> discord.Embed:
 
     if info["is_advanced"]:
         embed.add_field(name="게시한 토론 수", value=str(info["post_count"]), inline=True)
+        embed.add_field(name="진행 중 토론 수", value=str(info["active_post_count"]), inline=True)
         embed.add_field(name="종료한 토론 수", value=str(info["end_count"]), inline=True)
         embed.add_field(name="홍보 사용 수", value=str(info["total_promote_count"]), inline=True)
         embed.add_field(name="경고 횟수", value=str(info["warning_count"]), inline=True)
@@ -24,7 +25,7 @@ def info_embed(member: discord.Member, info: dict) -> discord.Embed:
     else:
         embed.add_field(
             name="고급 정보",
-            value="확장 기능 역할이 필요합니다. 역할을 얻으면 더 많은 정보를 볼 수 있습니다.",
+            value="'더보기' 역할이 필요합니다. 역할을 얻으면 더 많은 정보를 볼 수 있습니다.",
             inline=False,
         )
 

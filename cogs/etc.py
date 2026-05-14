@@ -14,6 +14,7 @@ from db.database import (
     ensure_user,
     get_post_count,
     get_end_count,
+    get_active_post_count,
     get_total_promote_count,
     get_warning_count,
     get_balance,
@@ -77,12 +78,13 @@ class Etc(commands.Cog):
             "is_advanced": is_advanced,
             "post_count": get_post_count(member.id),
             "end_count": get_end_count(member.id),
+            "active_post_count": get_active_post_count(member.id),
             "total_promote_count": get_total_promote_count(member.id),
             "warning_count": get_warning_count(member.id),
             "balance": get_balance(member.id),
         }
 
-        await interaction.response.send_message(embed=info_embed(member, info_data), ephemeral=False)
+        await interaction.response.send_message(embed=info_embed(member, info_data), ephemeral=True)
         await send_log(self.bot, member, "/info", "개인 정보 조회")
 
 

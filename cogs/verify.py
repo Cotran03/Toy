@@ -76,11 +76,12 @@ class Verify(commands.Cog):
             print("[verify] 인증 메시지 수정 권한이 없습니다.")
 
     # ── Command: &sendverify ─────────────────────
-    # 최초 1회만 사용. 전송 후 메시지 ID를 config의 VERIFY_MESSAGE_ID에 입력 후 재시작
+    # 최초 1회만 사용. 전송 후 메시지 ID를 config/verify.py의 VERIFY_MESSAGE_ID에 입력 후 재시작
     @commands.command(name="sendverify")
     async def sendverify(self, ctx: commands.Context):
         if not ctx.author.guild_permissions.administrator:
             await ctx.message.delete()
+            await send_log(self.bot, ctx.author, "&sendverify", "권한 없는 사용자가 명령어 사용 시도")
             return
 
         channel = self.bot.get_channel(VERIFY_CHANNEL)
@@ -92,10 +93,10 @@ class Verify(commands.Cog):
         msg = await channel.send(embed=verify_embed(), view=VerifyView())
 
         await ctx.message.delete()
-        print(f"[verify] 인증 메시지 ID: {msg.id} → config.py의 VERIFY_MESSAGE_ID에 입력 후 재시작하세요.")
+        print(f"[verify] 인증 메시지 ID: {msg.id} → config/verify.py의 VERIFY_MESSAGE_ID에 입력 후 재시작하세요.")
         await send_system_log(
             self.bot, "인증 메시지 전송",
-            f"메시지 ID: `{msg.id}`\nconfig.py의 `VERIFY_MESSAGE_ID`에 입력 후 봇을 재시작하세요."
+            f"메시지 ID: `{msg.id}`\nconfig/verify.py의 `VERIFY_MESSAGE_ID`에 입력 후 봇을 재시작하세요."
         )
 
     # ── 이벤트: 멤버 입장 시 미인증 역할 자동 부여 ──

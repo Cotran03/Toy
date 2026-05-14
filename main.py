@@ -3,6 +3,8 @@ import discord
 from discord.ext import commands
 import os
 
+from utils.send_log import send_log
+
 # Import Config
 from config import TOKEN, GUILD_ID
 
@@ -47,6 +49,7 @@ async def sync(ctx: commands.Context):
 
     if not ctx.author.guild_permissions.administrator:
         await ctx.message.delete()
+        await send_log(bot, ctx.author, "&sync", "권한 없는 사용자가 명령어 사용 시도")
         return
 
     guild = discord.Object(id=GUILD_ID)
@@ -61,6 +64,7 @@ async def sync(ctx: commands.Context):
 async def reload(ctx: commands.Context):
     if not ctx.author.guild_permissions.administrator:
         await ctx.message.delete()
+        await send_log(bot, ctx.author, "&reload", "권한 없는 사용자가 명령어 사용 시도")
         return
 
     results = []

@@ -7,11 +7,17 @@ from discord.ext import commands
 
 from config import (
     GUILD_ID,
-    POST_END_ROLES, ROLE_PROMOTER,
     PROMOTE_CHANNEL, PROMOTE_DAILY_LIMIT,
-    TAG_ONGOING, TAG_ENDED,
 )
-from db.database import ensure_user, get_promote_info, increment_promote, increment_end_count
+from services.post_service import (
+    build_ended_tags,
+    can_end_post,
+    can_promote,
+    has_promote_remaining,
+    is_forum_post_channel,
+    record_post_end,
+    record_promote,
+)
 from utils.send_log import send_log
 from views.post_embed import (
     end_embed,
@@ -28,10 +34,7 @@ GUILD = discord.Object(id=GUILD_ID)
 
 def is_forum_post(interaction: discord.Interaction) -> bool:
     """포럼 채널의 스레드(포스트)인지 확인."""
-    return (
-        isinstance(interaction.channel, discord.Thread)
-        and isinstance(interaction.channel.parent, discord.ForumChannel)
-    )
+    return is_forum_post_channel(interaction.channel)
 
 
 class Post(commands.Cog):
@@ -51,32 +54,24 @@ class Post(commands.Cog):
         member  = interaction.user
 
         # 권한 체크: 포스트 게시자 또는 POST_END_ROLE 보유자
-        is_owner      = channel.owner_id == member.id
-        is_end_role   = any(role.id in POST_END_ROLES for role in member.roles)
-
-        if not is_owner and not is_end_role:
+        if not can_end_post(member, channel):
             await interaction.response.send_message(embed=no_permission_embed(), ephemeral=True)
             await send_log(self.bot, member, "/end", f"권한 없는 사용자 사용 시도 — 포스트: '{channel.name}'")
             return
 
         # 태그 처리
-        forum = channel.parent
-        available_tags = {tag.name: tag for tag in forum.available_tags}
+        new_tags, missing_tag = build_ended_tags(channel)
 
-        if TAG_ENDED not in available_tags:
-            await interaction.response.send_message(embed=tag_not_found_embed(TAG_ENDED), ephemeral=True)
+        if missing_tag:
+            await interaction.response.send_message(embed=tag_not_found_embed(missing_tag), ephemeral=True)
             return
 
         # '진행중' 제거 + '종료됨' 추가
-        new_tags = [tag for tag in channel.applied_tags if tag.name != TAG_ONGOING]
-        if available_tags[TAG_ENDED] not in new_tags:
-            new_tags.append(available_tags[TAG_ENDED])
-
         # 종료 메시지 전송 후 잠금
         await interaction.response.send_message(embed=end_embed())
         await channel.edit(applied_tags=new_tags, locked=True, archived=True)
 
-        increment_end_count(member.id)
+        record_post_end(member.id)
         await send_log(self.bot, member, "/end", f"포스트 '{channel.name}' 종료")
 
     # ── Command: /promote ────────────────────────
@@ -91,16 +86,13 @@ class Post(commands.Cog):
         member = interaction.user
 
         # 역할 체크
-        if not any(role.id == ROLE_PROMOTER for role in member.roles):
+        if not can_promote(member):
             await interaction.response.send_message(embed=no_permission_embed(), ephemeral=True)
             await send_log(self.bot, member, "/promote", "권한 없는 사용자 사용 시도")
             return
 
-        ensure_user(member.id)
-
         # 하루 횟수 체크
-        used, _ = get_promote_info(member.id)
-        if used >= PROMOTE_DAILY_LIMIT:
+        if not has_promote_remaining(member.id):
             await interaction.response.send_message(embed=promote_limit_embed(PROMOTE_DAILY_LIMIT), ephemeral=True)
             return
 
@@ -110,7 +102,7 @@ class Post(commands.Cog):
             await promote_ch.send(embed=promote_channel_embed(member, interaction.channel))
 
         # 횟수 증가
-        new_used = increment_promote(member.id)
+        new_used = record_promote(member.id)
 
         # 남은 횟수 안내 — defer 후 followup으로 전송, 10초 후 자동 삭제
         await interaction.response.defer(ephemeral=False)
