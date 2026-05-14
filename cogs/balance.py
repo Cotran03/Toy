@@ -47,16 +47,16 @@ class StoreView(discord.ui.View):
                 )
             )
 
-        select = discord.ui.Select(
+        self.role_select = discord.ui.Select(
             placeholder="구매할 역할을 선택하세요.",
             min_values=1,
             max_values=1,
             options=options,
         )
-        select.callback = self.select_role
-        self.add_item(select)
+        self.role_select.callback = self.select_role
+        self.add_item(self.role_select)
 
-    async def select_role(self, interaction: discord.Interaction, select: discord.ui.Select):
+    async def select_role(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message(
                 "이 상점은 해당 명령어를 실행한 사용자만 사용할 수 있습니다.",
@@ -64,7 +64,7 @@ class StoreView(discord.ui.View):
             )
             return
 
-        self.selected_role_id = int(select.values[0])
+        self.selected_role_id = int(self.role_select.values[0])
         await interaction.response.edit_message(
             embed=store_embed(self.guild, get_user_balance(self.user_id), self.selected_role_id),
             view=self,
