@@ -1,15 +1,16 @@
 # ──────────────────────────────────────────────
 #  cogs/etc.py  |  기타 커맨드
 # ──────────────────────────────────────────────
-import discord
-from discord.ext import commands
-from discord import app_commands
+# Imports
 from datetime import datetime
+import discord
+from discord import app_commands
+from discord.ext import commands
 
-from utils.send_log import send_log
-from views.etc_embed import info_embed
-
+# Import Config
 from config import GUILD_ID, ROLE_INFO_ADVANCED
+
+# Import DB
 from db.database import (
     ensure_user,
     get_post_count,
@@ -20,6 +21,11 @@ from db.database import (
     get_balance,
 )
 
+# Import Utils
+from utils.send_log import send_log
+
+# Import Views
+from views.etc_embed import info_embed
 
 class Etc(commands.Cog):
     def __init__(self, bot: commands.Bot):

@@ -1,8 +1,10 @@
 # ──────────────────────────────────────────────
 #  views/log.py  |  로그 전용 Embed
 # ──────────────────────────────────────────────
-import discord
+# Imports
 from datetime import datetime, timezone
+
+import discord
 
 
 def log_embed(user: discord.User | discord.Member, command_name: str, details: str = "") -> discord.Embed:

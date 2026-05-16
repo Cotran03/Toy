@@ -1,8 +1,10 @@
 # ──────────────────────────────────────────────
 #  views/verify_embed.py  |  cogs/verify.py 전용 Embed
 # ──────────────────────────────────────────────
-import discord
+# Imports
 from datetime import datetime, timezone
+
+import discord
 
 
 def verify_embed() -> discord.Embed:

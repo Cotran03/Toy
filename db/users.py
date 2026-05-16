@@ -1,5 +1,7 @@
+# Imports
 import sqlite3
 
+# Import DB
 from .connection import get_connection
 
 

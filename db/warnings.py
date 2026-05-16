@@ -1,6 +1,8 @@
+# Imports
 import sqlite3
 from datetime import datetime, timedelta
 
+# Import DB
 from .connection import get_connection
 from .users import ensure_user
 

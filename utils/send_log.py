@@ -1,8 +1,11 @@
 # ──────────────────────────────────────────────
 #  util/send_log.py  |  로그 채널 전송 유틸
 # ──────────────────────────────────────────────
-from views.log_embed import log_embed, system_log_embed
+# Import Config
 from config import LOG_CHANNEL
+
+# Import Views
+from views.log_embed import log_embed, system_log_embed
 
 
 async def send_log(bot, user, command_name: str, details: str = "") -> None:

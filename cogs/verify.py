@@ -1,16 +1,22 @@
 # ──────────────────────────────────────────────
 #  cogs/verify.py  |  인증 관련 이벤트 + 버튼
 # ──────────────────────────────────────────────
+# Imports
 import discord
 from discord.ext import commands
 
+# Import Config
 from config import (
     ROLE_UNVERIFIED,
     ROLE_SCHOLAR,
     VERIFY_CHANNEL,
     VERIFY_MESSAGE_ID,
 )
+
+# Import Utils
 from utils.send_log import send_log, send_system_log
+
+# Import Views
 from views.verify_embed import verify_embed
 
 
@@ -30,6 +36,7 @@ class VerifyView(discord.ui.View):
         # 이미 인증된 유저 체크
         if scholar_role in member.roles:
             await interaction.response.send_message("이미 인증된 계정입니다.", ephemeral=True)
+            await send_log(self.bot, member, "인증 시도", "이미 인증된 계정")
             return
 
         try:
@@ -37,9 +44,10 @@ class VerifyView(discord.ui.View):
                 await member.remove_roles(unverified_role)
             if scholar_role:
                 await member.add_roles(scholar_role)
-                send_log(self.bot, member, "인증 성공", "학자 역할 부여")
+                await send_log(self.bot, member, "인증 성공", "학자 역할 부여")
         except discord.Forbidden:
             await interaction.response.send_message("역할 부여에 실패했습니다. 관리자에게 문의해주세요.", ephemeral=True)
+            await send_log(self.bot, member, "인증 실패", "역할 부여 권한 없음")
             return
 
         await interaction.response.defer()

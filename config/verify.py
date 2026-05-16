@@ -1,0 +1,3 @@
+# Verify message settings.
+
+VERIFY_MESSAGE_ID = 1500669503913066696

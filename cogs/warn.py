@@ -1,27 +1,41 @@
 # ──────────────────────────────────────────────
 #  cogs/warn.py  |  경고 관련 커맨드 + 만료 루프
 # ──────────────────────────────────────────────
+# Imports
+from datetime import timedelta
 import discord
 from discord.ext import commands, tasks
-from datetime import timedelta
 
+# Import Config
 from config import (
-    WARN_RULES, WARN_MAX,
+    WARN_MAX,
     WARN_NOTICE_CHANNEL,
-    WARN_ROLES
+    WARN_PENALTY,
+    WARN_RULES,
+    WARN_ROLES,
 )
+
+# Import DB
 from db.database import (
+    add_warning,
+    deduct_balance,
     ensure_user,
-    add_warning, get_warning_count, remove_warning,
-    expire_old_warnings, deduct_balance,
-    set_banned, is_banned,
+    expire_old_warnings,
+    get_warning_count,
+    is_banned,
+    remove_warning,
+    set_banned,
 )
-from utils.send_log import send_log, send_system_log
+
+# Import Utils
 from utils.check_permission import has_any_role
+from utils.send_log import send_log, send_system_log
+
+# Import Views
 from views.warn_embed import (
+    warn_expire_notice_embed,
     warn_notice_embed,
     warnoff_notice_embed,
-    warn_expire_notice_embed,
 )
 
 TIMEOUT_DURATION = {
@@ -29,9 +43,6 @@ TIMEOUT_DURATION = {
     "타임아웃 1일":    timedelta(days=1),
     "타임아웃 3일":    timedelta(days=3),
 }
-
-WARN_PENALTY = 100  # 경고 1회당 차감 재화 (임의값)
-
 
 async def apply_punishment(member: discord.Member, punishment: str, reason: str) -> None:
     if punishment in TIMEOUT_DURATION:
@@ -110,7 +121,7 @@ class Warn(commands.Cog):
         total = get_warning_count(member.id)
         punishment = WARN_RULES.get(total, "추방")
 
-        remaining_balance = deduct_balance(member.id, WARN_PENALTY * actual_add)
+        remaining_balance = deduct_balance(member.id, WARN_PENALTY)
 
         # ban이면 DB에 ban 상태 기록
         if punishment == "추방":
@@ -125,7 +136,7 @@ class Warn(commands.Cog):
         await ctx.message.delete()
         await send_log(
             self.bot, ctx.author, "&warn",
-            f"'{member}' ({member.id}) 경고 {actual_add}회 부여 / 누적 {total}회 / 사유: {reason} / 제재: {punishment} / 재화 -{WARN_PENALTY * actual_add} (잔액: {remaining_balance})"
+            f"'{member}' ({member.id}) 경고 {actual_add}회 부여 / 누적 {total}회 / 사유: {reason} / 제재: {punishment} / 재화 -{WARN_PENALTY} (잔액: {remaining_balance})"
         )
 
     @warn.error

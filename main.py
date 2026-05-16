@@ -1,15 +1,17 @@
 # Imports
-import discord
-from discord.ext import commands
 import os
 
-from utils.send_log import send_log
+import discord
+from discord.ext import commands
 
 # Import Config
-from config import TOKEN, GUILD_ID
+from config import GUILD_ID, TOKEN
 
 # Import DB
 from db.database import init_db
+
+# Import Utils
+from utils.send_log import send_log
 
 
 # Intents
@@ -44,6 +46,7 @@ async def on_ready():
 
 
 # Admin Command: &sync
+# 슬래시 커맨드 동기화 명령어. 필요하려나?
 @bot.command(name="sync")
 async def sync(ctx: commands.Context):
 
@@ -60,6 +63,7 @@ async def sync(ctx: commands.Context):
     await ctx.send(f"슬래시 커맨드 {len(synced)}개 동기화 완료", delete_after=5)
 
 # Admin Command: &reload
+# 코드 수정 후 변경 사항을 적용하기 위한 명령어. 이것도 필요한가..
 @bot.command(name="reload")
 async def reload(ctx: commands.Context):
     if not ctx.author.guild_permissions.administrator:

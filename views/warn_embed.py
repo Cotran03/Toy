@@ -1,8 +1,10 @@
 # ──────────────────────────────────────────────
 #  views/warn.py  |  cogs/warn.py 전용 Embed
 # ──────────────────────────────────────────────
-import discord
+# Imports
 from datetime import datetime, timezone
+
+import discord
 
 
 def warn_notice_embed(

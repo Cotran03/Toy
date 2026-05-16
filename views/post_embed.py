@@ -1,8 +1,10 @@
 # ──────────────────────────────────────────────
 #  views/post_embed.py  |  cogs/post.py 전용 Embed
 # ──────────────────────────────────────────────
-import discord
+# Imports
 from datetime import datetime, timezone
+
+import discord
 
 
 def end_embed() -> discord.Embed:

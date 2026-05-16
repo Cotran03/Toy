@@ -1,6 +1,10 @@
+# Imports
 import discord
 
-from config import STORE_ITEMS
+# Import Config
+from config import DAILY_REWARD_AMOUNT, STORE_ITEMS
+
+# Import DB
 from db.database import (
     add_balance,
     can_claim_reward,
@@ -10,8 +14,6 @@ from db.database import (
     set_balance,
     set_reward_claimed,
 )
-
-DAILY_REWARD_AMOUNT = 100
 
 
 def get_user_balance(user_id: int) -> int:

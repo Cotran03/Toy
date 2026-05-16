@@ -1,5 +1,7 @@
+# Imports
 from datetime import date
 
+# Import DB
 from .connection import get_connection
 from .users import ensure_user, get_user
 

@@ -1,14 +1,20 @@
 ﻿# ──────────────────────────────────────────────
 #  cogs/balance.py  |  잔고 관련 커맨드
 # ──────────────────────────────────────────────
-
+# Imports
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import GUILD_ID, BALANCER_ROLES, STORE_ITEMS
+# Import Config
+from config import BALANCER_ROLES, DAILY_REWARD_AMOUNT, GUILD_ID, STORE_ITEMS
+
+# Import Utils
+from utils.check_permission import has_any_role
+from utils.send_log import send_log
+
+# Import Services
 from services.balance_service import (
-    DAILY_REWARD_AMOUNT,
     add_user_balance,
     can_purchase_store_role,
     claim_daily_reward,
@@ -17,17 +23,18 @@ from services.balance_service import (
     get_user_balance,
     reset_user_balance,
 )
-from utils.check_permission import has_any_role
-from utils.send_log import send_log
+
+# Import Views
 from views.balance_embed import (
     store_embed,
-    store_purchase_result_embed,
     store_purchase_failed_embed,
+    store_purchase_result_embed,
 )
 
+# Constants
 GUILD = discord.Object(id=GUILD_ID)
 
-
+# StoreView: 역할 구매 인터랙티브 뷰
 class StoreView(discord.ui.View):
     def __init__(self, user_id: int, guild: discord.Guild):
         super().__init__(timeout=180)
@@ -56,30 +63,34 @@ class StoreView(discord.ui.View):
         self.role_select.callback = self.select_role
         self.add_item(self.role_select)
 
+    # 드롭다운 선택 콜백
     async def select_role(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # 선택한 사용자가 명령어 실행자와 동일한지 확인
+        if interaction.user.id != self.user_id: 
             await interaction.response.send_message(
                 "이 상점은 해당 명령어를 실행한 사용자만 사용할 수 있습니다.",
                 ephemeral=True,
             )
             return
-
+        # 선택한 역할 ID 저장
         self.selected_role_id = int(self.role_select.values[0])
         await interaction.response.edit_message(
             embed=store_embed(self.guild, get_user_balance(self.user_id), self.selected_role_id),
             view=self,
         )
 
+    # 구매 버튼 콜백
     @discord.ui.button(label="구매", style=discord.ButtonStyle.primary)
     async def purchase_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
+        # 구매 버튼을 누른 사용자가 명령어 실행자와 동일한지 확인
+        if interaction.user.id != self.user_id: # 다른 사용자가 상호작용 시도 시 거부
             await interaction.response.send_message(
                 "이 상점은 해당 명령어을 실행한 사용자만 사용할 수 있습니다.",
                 ephemeral=True,
             )
             return
 
-        if self.selected_role_id is None:
+        if self.selected_role_id is None:   # 드롭다운에서 역할을 선택하지 않은 경우
             await interaction.response.send_message(
                 "먼저 드롭다운에서 구매할 역할을 선택해주세요.",
                 ephemeral=True,
@@ -88,7 +99,7 @@ class StoreView(discord.ui.View):
 
         member = interaction.user
         guild = interaction.guild
-        if guild is None:
+        if guild is None:   # 길드 정보가 없는 경우 (이론상 발생하지 않아야 함)
             await interaction.response.send_message("서버 정보를 가져오지 못했습니다.", ephemeral=True)
             return
 
@@ -98,21 +109,21 @@ class StoreView(discord.ui.View):
             self.selected_role_id,
         )
 
-        if reason == "not_found":
+        if reason == "not_found": # 선택한 역할 정보가 없는 경우
             await interaction.response.send_message(
                 "선택한 역할 정보를 찾을 수 없습니다.",
                 ephemeral=True,
             )
             return
 
-        if reason == "already_owned":
+        if reason == "already_owned":   # 이미 해당 역할을 보유한 경우
             await interaction.response.send_message(
                 "이미 해당 역할을 보유하고 있습니다.",
                 ephemeral=True,
             )
             return
 
-        if reason == "insufficient_balance":
+        if reason == "insufficient_balance":    # 잔액 부족으로 구매할 수 없는 경우
             price = item["price"]
             await interaction.response.send_message(
                 embed=store_purchase_failed_embed(role.name, price, balance),
@@ -120,7 +131,7 @@ class StoreView(discord.ui.View):
             )
             return
 
-        if not can_purchase:
+        if not can_purchase:    # 구매 조건을 충족하지 못한 경우 (예: 특정 역할 필요)
             await interaction.response.send_message("구매를 처리할 수 없습니다.", ephemeral=True)
             return
 
@@ -148,28 +159,30 @@ class StoreView(discord.ui.View):
             f"{role.name} 역할 구매 / {price} INS 사용 / 남은 잔액 {new_balance} INS",
         )
 
-
+# Balance Cog: 잔고 관련 명령어 (일일 보상, 상점, 관리자 명령어)
 class Balance(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    # ── Command: /reward ────────────────────────
     @app_commands.command(name="reward", description="하루에 한 번 INS를 받습니다.")
     @app_commands.guilds(GUILD)
     async def reward(self, interaction: discord.Interaction):
         claimed, _ = claim_daily_reward(interaction.user.id)
-        if not claimed:
+        if not claimed:  # 이미 오늘 보상을 받은 경우
             await interaction.response.send_message(
                 "오늘은 이미 보상을 받았습니다. 내일 다시 시도해주세요.",
                 ephemeral=True,
             )
             return
-
+        # 보상 지급 및 응답
         await interaction.response.send_message(
-            f"🎉 오늘의 보상으로 {DAILY_REWARD_AMOUNT} INS를 받았습니다!",
+            f"오늘의 보상으로 {DAILY_REWARD_AMOUNT} INS를 받았습니다.",
             ephemeral=True,
         )
         await send_log(self.bot, interaction.user, "/reward", "일일 보상 수령")
 
+    # ── Command: /store ────────────────────────
     @app_commands.command(name="store", description="INS로 역할을 구매합니다.")
     @app_commands.guilds(GUILD)
     async def store(self, interaction: discord.Interaction):
@@ -181,9 +194,10 @@ class Balance(commands.Cog):
             ephemeral=True,
         )
 
+    # ── Admin Command: &addINS ────────────────────────
     @commands.command(name="addINS")
     async def add_ins(self, ctx: commands.Context, member: discord.Member, amount: int, *, reason: str = "관리자에 의해 추가됨"):
-        if not has_any_role(ctx.author, BALANCER_ROLES):
+        if not has_any_role(ctx.author, BALANCER_ROLES):    # 잔고 조정 권한 체크
             await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&addINS", "권한 없는 사용자가 명령어 사용 시도")
             return
@@ -192,9 +206,10 @@ class Balance(commands.Cog):
         await ctx.send(f"{member.mention}님에게 {amount} INS를 추가했습니다. 현재 잔액: {new_balance} INS.")
         await send_log(self.bot, ctx.author, "&addINS", f"대상: {member} / {amount} INS / 사유: {reason}")
 
+    # ── Admin Command: &delINS ────────────────────────
     @commands.command(name="delINS")
     async def del_ins(self, ctx: commands.Context, member: discord.Member, amount: int, *, reason: str = "관리자에 의해 차감됨"):
-        if not has_any_role(ctx.author, BALANCER_ROLES):
+        if not has_any_role(ctx.author, BALANCER_ROLES):    # 잔고 조정 권한 체크
             await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&delINS", "권한 없는 사용자가 명령어 사용 시도")
             return
@@ -203,9 +218,10 @@ class Balance(commands.Cog):
         await ctx.send(f"{member.mention}님의 INS를 {amount}만큼 차감했습니다. 현재 잔액: {new_balance} INS.")
         await send_log(self.bot, ctx.author, "&delINS", f"대상: {member} / {amount} INS / 사유: {reason}")
 
+    # ── Admin Command: &resetINS ────────────────────────
     @commands.command(name="resetINS")
     async def reset_ins(self, ctx: commands.Context, member: discord.Member, amount: int, *, reason: str):
-        if not has_any_role(ctx.author, BALANCER_ROLES):
+        if not has_any_role(ctx.author, BALANCER_ROLES):    # 잔고 조정 권한 체크
             await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&resetINS", "권한 없는 사용자가 명령어 사용 시도")
             return

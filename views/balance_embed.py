@@ -1,5 +1,7 @@
+# Imports
 import discord
 
+# Import Config
 from config import STORE_ITEMS
 
 
