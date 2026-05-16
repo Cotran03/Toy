@@ -22,8 +22,9 @@ from views.verify_embed import verify_embed
 
 # ── Persistent View ───────────────────────────
 class VerifyView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, bot: commands.Bot):
         super().__init__(timeout=None)  # timeout=None → persistent
+        self.bot = bot
 
     @discord.ui.button(label="인증하기", style=discord.ButtonStyle.success, custom_id="verify_button")
     async def verify_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -36,7 +37,7 @@ class VerifyView(discord.ui.View):
         # 이미 인증된 유저 체크
         if scholar_role in member.roles:
             await interaction.response.send_message("이미 인증된 계정입니다.", ephemeral=True)
-            await send_log(self.bot, member, "인증 시도", "이미 인증된 계정")
+            await send_system_log(self.bot, "인증 시도", "이미 인증된 계정")
             return
 
         try:
@@ -44,10 +45,10 @@ class VerifyView(discord.ui.View):
                 await member.remove_roles(unverified_role)
             if scholar_role:
                 await member.add_roles(scholar_role)
-                await send_log(self.bot, member, "인증 성공", "학자 역할 부여")
+                await send_system_log(self.bot, "인증 성공", "역할 부여 완료")
         except discord.Forbidden:
             await interaction.response.send_message("역할 부여에 실패했습니다. 관리자에게 문의해주세요.", ephemeral=True)
-            await send_log(self.bot, member, "인증 실패", "역할 부여 권한 없음")
+            await send_system_log(self.bot, "인증 실패", "역할 부여 실패 — 권한 부족")
             return
 
         await interaction.response.defer()
@@ -59,7 +60,7 @@ class Verify(commands.Cog):
 
     async def cog_load(self):
         """Cog 로드 시 persistent View 등록 + 기존 메시지에 View 연결."""
-        self.bot.add_view(VerifyView())
+        self.bot.add_view(VerifyView(self.bot))
         self.bot.loop.create_task(self._attach_view())
 
     async def _attach_view(self):
@@ -77,7 +78,7 @@ class Verify(commands.Cog):
 
         try:
             msg = await channel.fetch_message(VERIFY_MESSAGE_ID)
-            await msg.edit(view=VerifyView())
+            await msg.edit(view=VerifyView(self.bot))
             print(f"[verify] 인증 메시지 View 연결 완료 (ID: {VERIFY_MESSAGE_ID})")
         except discord.NotFound:
             print("[verify] 인증 메시지를 찾을 수 없습니다. VERIFY_MESSAGE_ID를 확인하세요.")
@@ -99,7 +100,7 @@ class Verify(commands.Cog):
             await ctx.message.delete()
             return
 
-        msg = await channel.send(embed=verify_embed(), view=VerifyView())
+        msg = await channel.send(embed=verify_embed(), view=VerifyView(self.bot))
 
         await ctx.message.delete()
         print(f"[verify] 인증 메시지 ID: {msg.id} → config/verify.py의 VERIFY_MESSAGE_ID에 입력 후 재시작하세요.")
