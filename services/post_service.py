@@ -4,10 +4,15 @@ import discord
 # Import Config
 from config import (
     END_REWARD_AMOUNT,
+    POST_ACTIVE_LIMIT,
+    POST_ACTIVE_LIMIT_MULTITASKER,
     POST_END_ROLES,
+    PROMOTE_ADVANCED_DAILY_LIMIT,
     PROMOTE_COST,
     PROMOTE_DAILY_LIMIT,
+    ROLE_MULTITASKER,
     ROLE_PROMOTER,
+    ROLE_PROMOTER_ADVANCED,
     TAG_ENDED,
     TAG_ONGOING,
 )
@@ -17,9 +22,11 @@ from db.database import (
     add_balance,
     deduct_balance,
     ensure_user,
+    get_active_post_count,
     get_balance,
     get_promote_info,
     increment_end_count,
+    increment_post_count,
     increment_promote,
 )
 
@@ -57,8 +64,34 @@ def record_post_end(user_id: int) -> tuple[int, int]:
     return end_count, balance
 
 
+def get_active_post_limit(member: discord.Member) -> int:
+    if any(role.id == ROLE_MULTITASKER for role in member.roles):
+        return POST_ACTIVE_LIMIT_MULTITASKER
+    return POST_ACTIVE_LIMIT
+
+
+def get_active_post_usage(user_id: int) -> int:
+    ensure_user(user_id)
+    return get_active_post_count(user_id)
+
+
+def has_active_post_slot(member: discord.Member) -> bool:
+    return get_active_post_usage(member.id) < get_active_post_limit(member)
+
+
+def record_post_create(user_id: int) -> int:
+    return increment_post_count(user_id)
+
+
 def can_promote(member: discord.Member) -> bool:
     return any(role.id == ROLE_PROMOTER for role in member.roles)
+
+
+def get_promote_limit(member: discord.Member) -> int:
+    role_ids = {role.id for role in member.roles}
+    if ROLE_PROMOTER in role_ids and ROLE_PROMOTER_ADVANCED in role_ids:
+        return PROMOTE_ADVANCED_DAILY_LIMIT
+    return PROMOTE_DAILY_LIMIT
 
 
 def get_promote_usage(user_id: int) -> int:
@@ -67,8 +100,8 @@ def get_promote_usage(user_id: int) -> int:
     return used
 
 
-def has_promote_remaining(user_id: int) -> bool:
-    return get_promote_usage(user_id) < PROMOTE_DAILY_LIMIT
+def has_promote_remaining(member: discord.Member) -> bool:
+    return get_promote_usage(member.id) < get_promote_limit(member)
 
 
 def has_promote_cost(user_id: int) -> bool:

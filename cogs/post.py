@@ -1,51 +1,43 @@
-# ──────────────────────────────────────────────
-#  cogs/post.py  |  포스트 관련 커맨드
-# ──────────────────────────────────────────────
-# Imports
+import asyncio
+
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-# Import Config
-from config import (
-    END_REWARD_AMOUNT,
-    GUILD_ID,
-    PROMOTE_COST,
-    PROMOTE_CHANNEL,
-    PROMOTE_DAILY_LIMIT,
-)
-
-# Import Utils
-from utils.send_log import send_log
-
-# Import Services
+from config import END_REWARD_AMOUNT, GUILD_ID, PROMOTE_CHANNEL, PROMOTE_COST
 from services.post_service import (
     build_ended_tags,
     can_end_post,
     can_promote,
+    get_active_post_limit,
+    get_active_post_usage,
+    get_promote_limit,
     has_promote_cost,
     has_promote_remaining,
     is_forum_post_channel,
+    record_post_create,
     record_post_end,
     record_promote,
 )
-
-# Import Views
+from utils.send_log import send_log
 from views.post_embed import (
     end_embed,
     no_permission_embed,
     not_forum_post_embed,
     promote_channel_embed,
+    promote_cost_embed,
     promote_limit_embed,
     promote_remaining_embed,
     tag_not_found_embed,
 )
 
+
 GUILD = discord.Object(id=GUILD_ID)
+PROMOTE_RESULT_DELETE_DELAY = 10
+OVER_LIMIT_THREAD_DELETE_DELAY = 10
 
 
 def is_forum_post(interaction: discord.Interaction) -> bool:
-    """포럼 채널의 스레드(포스트)인지 확인."""
     return is_forum_post_channel(interaction.channel)
 
 
@@ -53,94 +45,152 @@ class Post(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # ── Command: /end ────────────────────────────
+    async def _fetch_thread_owner(self, thread: discord.Thread) -> discord.Member | None:
+        if thread.owner_id is None:
+            return None
+
+        member = thread.guild.get_member(thread.owner_id)
+        if member is not None:
+            return member
+
+        try:
+            return await thread.guild.fetch_member(thread.owner_id)
+        except discord.NotFound:
+            return None
+
+    async def _close_over_limit_thread(
+        self,
+        thread: discord.Thread,
+        member: discord.Member,
+        active_count: int,
+        active_limit: int,
+    ) -> None:
+        try:
+            await thread.send(
+                f"진행 중인 토론은 최대 {active_limit}개까지 만들 수 있습니다. "
+                "진행 중인 토론에서 /end를 사용한 뒤 새로 만들어주세요. "
+                f"이 토론은 {OVER_LIMIT_THREAD_DELETE_DELAY}초 뒤 삭제됩니다."
+            )
+        except discord.Forbidden:
+            pass
+
+        try:
+            await asyncio.sleep(OVER_LIMIT_THREAD_DELETE_DELAY)
+            await thread.delete()
+        except discord.Forbidden:
+            try:
+                await thread.edit(locked=True, archived=True)
+            except discord.Forbidden:
+                pass
+        except discord.NotFound:
+            pass
+
+        await send_log(
+            self.bot,
+            member,
+            "thread_create",
+            f"진행 중 토론 제한 초과로 '{thread.name}' 삭제 ({active_count}/{active_limit})",
+        )
+
+    @commands.Cog.listener()
+    async def on_thread_create(self, thread: discord.Thread) -> None:
+        if not is_forum_post_channel(thread):
+            return
+
+        member = await self._fetch_thread_owner(thread)
+        if member is None:
+            return
+
+        active_count = get_active_post_usage(member.id)
+        active_limit = get_active_post_limit(member)
+        if active_count >= active_limit:
+            await self._close_over_limit_thread(thread, member, active_count, active_limit)
+            return
+
+        new_count = record_post_create(member.id)
+        await send_log(
+            self.bot,
+            member,
+            "thread_create",
+            f"토론 '{thread.name}' 생성 / 게시한 토론 수 {new_count}",
+        )
+
     @app_commands.command(name="end", description="토론 포스트를 종료합니다.")
     @app_commands.guilds(GUILD)
-    async def end(self, interaction: discord.Interaction):
-        # 포럼 포스트 체크
+    async def end(self, interaction: discord.Interaction) -> None:
         if not is_forum_post(interaction):
             await interaction.response.send_message(embed=not_forum_post_embed(), ephemeral=True)
             return
 
         channel = interaction.channel
-        member  = interaction.user
+        member = interaction.user
 
-        # 권한 체크: 포스트 게시자 또는 POST_END_ROLE 보유자
         if not can_end_post(member, channel):
             await interaction.response.send_message(embed=no_permission_embed(), ephemeral=True)
             await send_log(self.bot, member, "/end", f"권한 없는 사용자 사용 시도 — 포스트: '{channel.name}'")
             return
 
-        # 태그 처리
         new_tags, missing_tag = build_ended_tags(channel)
-
         if missing_tag:
             await interaction.response.send_message(embed=tag_not_found_embed(missing_tag), ephemeral=True)
             return
 
-        # '진행중' 제거 + '종료됨' 추가
-        # 종료 메시지 전송 후 잠금
         await interaction.response.send_message(embed=end_embed())
         await channel.edit(applied_tags=new_tags, locked=True, archived=True)
 
-        _, balance = record_post_end(member.id)
+        post_owner_id = channel.owner_id or member.id
+        _, balance = record_post_end(post_owner_id)
         await send_log(
             self.bot,
             member,
             "/end",
-            f"포스트 '{channel.name}' 종료 / 보상 {END_REWARD_AMOUNT} INS / 잔액 {balance} INS",
+            f"포스트 '{channel.name}' 종료 / 소유자 {post_owner_id} / 보상 {END_REWARD_AMOUNT} INS / 잔액 {balance} INS",
         )
 
-    # ── Command: /promote ────────────────────────
     @app_commands.command(name="promote", description="현재 포스트를 홍보 채널에 홍보합니다.")
     @app_commands.guilds(GUILD)
-    async def promote(self, interaction: discord.Interaction):
-        # 포럼 포스트 체크
+    async def promote(self, interaction: discord.Interaction) -> None:
         if not is_forum_post(interaction):
             await interaction.response.send_message(embed=not_forum_post_embed(), ephemeral=True)
             return
 
         member = interaction.user
+        channel = interaction.channel
 
-        # 역할 체크
         if not can_promote(member):
             await interaction.response.send_message(embed=no_permission_embed(), ephemeral=True)
             await send_log(self.bot, member, "/promote", "권한 없는 사용자 사용 시도")
             return
 
-        # 하루 횟수 체크
-        if not has_promote_remaining(member.id):
-            await interaction.response.send_message(embed=promote_limit_embed(PROMOTE_DAILY_LIMIT), ephemeral=True)
+        promote_limit = get_promote_limit(member)
+        if not has_promote_remaining(member):
+            await interaction.response.send_message(embed=promote_limit_embed(promote_limit), ephemeral=True)
             return
 
         if not has_promote_cost(member.id):
-            await interaction.response.send_message(
-                f"/promote 사용에는 {PROMOTE_COST} INS가 필요합니다.",
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=promote_cost_embed(PROMOTE_COST), ephemeral=True)
             return
 
-        # 홍보 채널에 embed 전송
-        promote_ch = self.bot.get_channel(PROMOTE_CHANNEL)
-        if promote_ch:
-            await promote_ch.send(embed=promote_channel_embed(member, interaction.channel))
+        promote_channel = self.bot.get_channel(PROMOTE_CHANNEL)
+        if promote_channel:
+            await promote_channel.send(embed=promote_channel_embed(member, channel))
 
-        # 횟수 증가
         new_used, balance = record_promote(member.id)
 
-        # 남은 횟수 안내 — defer 후 followup으로 전송, 10초 후 자동 삭제
         await interaction.response.defer(ephemeral=False)
         followup_msg = await interaction.followup.send(
-            embed=promote_remaining_embed(new_used, PROMOTE_DAILY_LIMIT),
+            embed=promote_remaining_embed(new_used, promote_limit),
             wait=True,
         )
-        await followup_msg.delete(delay=10)
+        await followup_msg.delete(delay=PROMOTE_RESULT_DELETE_DELAY)
 
         await send_log(
-            self.bot, member, "/promote",
-            f"포스트 '{interaction.channel.name}' 홍보 / {PROMOTE_COST} INS 사용 / 잔액 {balance} INS / 오늘 {new_used}/{PROMOTE_DAILY_LIMIT}회 사용"
+            self.bot,
+            member,
+            "/promote",
+            f"포스트 '{channel.name}' 홍보 / {PROMOTE_COST} INS 사용 / 잔액 {balance} INS / 오늘 {new_used}/{promote_limit}회 사용",
         )
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Post(bot))

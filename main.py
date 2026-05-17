@@ -1,55 +1,55 @@
-# Imports
 import os
 
 import discord
 from discord.ext import commands
 
-# Import Config
 from config import GUILD_ID, TOKEN
-
-# Import DB
 from db.database import init_db
-
-# Import Utils
 from utils.send_log import send_log
 
 
-# Intents
+COMMAND_PREFIX = "&"
+COG_DIR = "cogs"
+
 intents = discord.Intents.all()
 
 
-# Import Cogs
-async def load_extensions(bot):
-    for filename in os.listdir('cogs'):
-        if filename.endswith('.py'):
-            extension = 'cogs.' + filename[:-3]
-            print(f"{extension} 모듈을 불러왔습니다.")
-            await bot.load_extension(extension)
+async def load_extensions(bot: commands.Bot) -> None:
+    """COG_DIR 디렉토리에 있는 모든 .py 파일을 확장으로 불러옵니다."""
+    for filename in os.listdir(COG_DIR):
+        if not filename.endswith(".py"):
+            continue
+
+        extension = f"{COG_DIR}.{filename[:-3]}"
+        print(f"{extension} 모듈을 불러옵니다.")
+        await bot.load_extension(extension)
 
 
-# Bot
 class MyBot(commands.Bot):
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
         init_db()
         await load_extensions(self)
+
         guild = discord.Object(id=GUILD_ID)
         self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
 
-bot = MyBot(command_prefix='&', intents=intents, help_command=None)
+
+bot = MyBot(
+    command_prefix=COMMAND_PREFIX,
+    intents=intents,
+    help_command=None,
+)
 
 
-# Events
 @bot.event
-async def on_ready():
-    print(f'Logged in as {bot.user}')
+async def on_ready() -> None:
+    print(f"Logged in as {bot.user}")
 
 
-# Admin Command: &sync
-# 슬래시 커맨드 동기화 명령어. 필요하려나?
 @bot.command(name="sync")
-async def sync(ctx: commands.Context):
-
+async def sync(ctx: commands.Context) -> None:
+    """관리자 전용: 슬래시 커맨드를 길드에 동기화합니다."""
     if not ctx.author.guild_permissions.administrator:
         await ctx.message.delete()
         await send_log(bot, ctx.author, "&sync", "권한 없는 사용자가 명령어 사용 시도")
@@ -62,28 +62,29 @@ async def sync(ctx: commands.Context):
     await ctx.message.delete()
     await ctx.send(f"슬래시 커맨드 {len(synced)}개 동기화 완료", delete_after=5)
 
-# Admin Command: &reload
-# 코드 수정 후 변경 사항을 적용하기 위한 명령어. 이것도 필요한가..
+
 @bot.command(name="reload")
-async def reload(ctx: commands.Context):
+async def reload(ctx: commands.Context) -> None:
+    """관리자 전용: 모든 Cog를 다시 불러옵니다."""
     if not ctx.author.guild_permissions.administrator:
         await ctx.message.delete()
         await send_log(bot, ctx.author, "&reload", "권한 없는 사용자가 명령어 사용 시도")
         return
 
-    results = []
-    for filename in os.listdir('cogs'):
-        if filename.endswith('.py'):
-            ext = f"cogs.{filename[:-3]}"
-            try:
-                await bot.reload_extension(ext)
-                results.append(f"✅ {ext}")
-            except Exception as e:
-                results.append(f"❌ {ext} — {e}")
+    results: list[str] = []
+    for filename in os.listdir(COG_DIR):
+        if not filename.endswith(".py"):
+            continue
+
+        extension = f"{COG_DIR}.{filename[:-3]}"
+        try:
+            await bot.reload_extension(extension)
+            results.append(f"✅ {extension}")
+        except Exception as exc:
+            results.append(f"❌ {extension} — {exc}")
 
     await ctx.message.delete()
     await ctx.send("\n".join(results), delete_after=5)
 
 
-# Run the bot
 bot.run(TOKEN)

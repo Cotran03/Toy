@@ -1,3 +1,4 @@
 # Promote command settings.
 
 PROMOTE_DAILY_LIMIT = 3
+PROMOTE_ADVANCED_DAILY_LIMIT = 5

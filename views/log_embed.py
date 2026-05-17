@@ -1,9 +1,5 @@
-# ──────────────────────────────────────────────
-#  views/log.py  |  로그 전용 Embed
-# ──────────────────────────────────────────────
 # Imports
 from datetime import datetime, timezone
-
 import discord
 
 

@@ -2,7 +2,7 @@
 import discord
 
 # Import Config
-from config import DAILY_REWARD_AMOUNT, STORE_ITEMS
+from config import DAILY_REWARD_AMOUNT, ROLE_PROMOTER, ROLE_PROMOTER_ADVANCED, STORE_ITEMS
 
 # Import DB
 from db.database import (
@@ -65,6 +65,10 @@ def can_purchase_store_role(
 
     if role in member.roles:
         return False, "already_owned", role, item, balance
+
+    role_ids = {owned_role.id for owned_role in member.roles}
+    if role_id == ROLE_PROMOTER_ADVANCED and ROLE_PROMOTER not in role_ids:
+        return False, "missing_promoter", role, item, balance
 
     if balance < item["price"]:
         return False, "insufficient_balance", role, item, balance

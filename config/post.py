@@ -1,4 +1,7 @@
-# Forum post tag names.
+# Forum post settings.
 
 TAG_ONGOING = "진행중"
 TAG_ENDED = "종료됨"
+
+POST_ACTIVE_LIMIT = 1
+POST_ACTIVE_LIMIT_MULTITASKER = 3
