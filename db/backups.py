@@ -1,6 +1,7 @@
 import asyncio
 import sqlite3
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from .connection import DB_PATH
@@ -11,11 +12,12 @@ BACKUP_RETENTION_HOURS = 48
 BACKUP_DIR = Path(__file__).resolve().parent / "backups"
 BACKUP_PREFIX = "bot_backup_"
 BACKUP_SUFFIX = ".db"
+BACKUP_TIMEZONE = ZoneInfo("Asia/Seoul")
 
 
 def _backup_path(now: datetime | None = None) -> Path:
-    timestamp = (now or datetime.now()).strftime("%Y%m%d_%H%M%S")
-    return BACKUP_DIR / f"{BACKUP_PREFIX}{timestamp}{BACKUP_SUFFIX}"
+    timestamp = (now or datetime.now(BACKUP_TIMEZONE)).astimezone(BACKUP_TIMEZONE)
+    return BACKUP_DIR / f"{BACKUP_PREFIX}{timestamp:%Y%m%d_%H%M%S}_KST{BACKUP_SUFFIX}"
 
 
 def backup_database() -> Path:
