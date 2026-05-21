@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 
 from config import GUILD_ID, TOKEN
-from db.backups import database_backup_loop
+from db.backups import database_backup_loop, list_backups, restore_database
 from db.database import init_db
 from utils.send_log import send_log
 
@@ -87,6 +87,70 @@ async def reload(ctx: commands.Context) -> None:
 
     await ctx.message.delete()
     await ctx.send("\n".join(results), delete_after=5)
+
+
+@bot.command(name="backups")
+async def backups(ctx: commands.Context) -> None:
+    """Admin only: list available database backups."""
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.message.delete()
+        await send_log(bot, ctx.author, "&backups", "권한 없는 사용자가 명령어 사용 시도")
+        return
+
+    backup_paths = await bot.loop.run_in_executor(None, list_backups)
+    if not backup_paths:
+        await ctx.message.delete()
+        await ctx.send("DB 백업본이 없습니다.", delete_after=10)
+        return
+
+    lines = ["사용 가능한 DB 백업본:"]
+    for index, path in enumerate(backup_paths[:10], start=1):
+        lines.append(f"{index}. `{path.name}`")
+
+    if len(backup_paths) > 10:
+        lines.append(f"...외 {len(backup_paths) - 10}개")
+
+    await ctx.message.delete()
+    await ctx.send("\n".join(lines), delete_after=30)
+
+
+@bot.command(name="restoredb")
+async def restoredb(ctx: commands.Context, backup_name: str | None = None) -> None:
+    """Admin only: restore the database from a backup."""
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.message.delete()
+        await send_log(bot, ctx.author, "&restoredb", "권한 없는 사용자가 명령어 사용 시도")
+        return
+
+    if backup_name is None:
+        await ctx.message.delete()
+        await ctx.send("사용법: `&restoredb latest` 또는 `&restoredb 백업파일명.db`", delete_after=15)
+        return
+
+    try:
+        restored_from, safety_backup = await bot.loop.run_in_executor(
+            None,
+            restore_database,
+            backup_name,
+        )
+    except Exception as exc:
+        await ctx.message.delete()
+        await ctx.send(f"DB 복구 실패: `{exc}`", delete_after=15)
+        await send_log(bot, ctx.author, "&restoredb", f"DB 복구 실패: {exc}")
+        return
+
+    safety_text = safety_backup.name if safety_backup else "없음"
+    await ctx.message.delete()
+    await ctx.send(
+        f"DB 복구 완료: `{restored_from.name}`\n복구 전 안전 백업: `{safety_text}`\n봇 재시작을 권장합니다.",
+        delete_after=30,
+    )
+    await send_log(
+        bot,
+        ctx.author,
+        "&restoredb",
+        f"복구본: {restored_from.name} / 복구 전 안전 백업: {safety_text}",
+    )
 
 
 bot.run(TOKEN)

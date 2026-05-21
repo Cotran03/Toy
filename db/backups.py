@@ -50,6 +50,64 @@ def backup_database() -> Path:
     return destination_path
 
 
+def list_backups() -> list[Path]:
+    """Return available backups from newest to oldest."""
+    if not BACKUP_DIR.exists():
+        return []
+
+    backups = [
+        path
+        for path in BACKUP_DIR.glob(f"{BACKUP_PREFIX}*{BACKUP_SUFFIX}")
+        if path.is_file()
+    ]
+    return sorted(backups, key=lambda path: path.stat().st_mtime, reverse=True)
+
+
+def resolve_backup(identifier: str) -> Path:
+    """Resolve 'latest' or a backup filename to a safe backup path."""
+    if identifier == "latest":
+        backups = list_backups()
+        if not backups:
+            raise FileNotFoundError("No database backups found.")
+        return backups[0]
+
+    candidate = BACKUP_DIR / Path(identifier).name
+    if not candidate.is_file():
+        raise FileNotFoundError(f"Backup not found: {identifier}")
+
+    if candidate.parent.resolve() != BACKUP_DIR.resolve():
+        raise ValueError("Invalid backup path.")
+
+    return candidate
+
+
+def restore_database(identifier: str) -> tuple[Path, Path | None]:
+    """Restore DB_PATH from a backup. Returns (restored_from, safety_backup)."""
+    backup_path = resolve_backup(identifier)
+
+    safety_backup = None
+    source_path = Path(DB_PATH)
+    if source_path.exists() and source_path.stat().st_size > 0:
+        safety_backup = backup_database()
+
+    try:
+        source_uri = f"{backup_path.resolve().as_uri()}?mode=ro"
+        source = sqlite3.connect(source_uri, uri=True)
+        try:
+            destination = sqlite3.connect(DB_PATH)
+            try:
+                source.backup(destination)
+            finally:
+                destination.close()
+        finally:
+            source.close()
+    except Exception:
+        Path(f"{DB_PATH}-journal").unlink(missing_ok=True)
+        raise
+
+    return backup_path, safety_backup
+
+
 def prune_old_backups() -> int:
     """Delete DB backups older than the retention window."""
     if not BACKUP_DIR.exists():
