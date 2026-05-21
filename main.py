@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from config import GUILD_ID, TOKEN
+from db.backups import database_backup_loop
 from db.database import init_db
 from utils.send_log import send_log
 
@@ -28,6 +29,7 @@ async def load_extensions(bot: commands.Bot) -> None:
 class MyBot(commands.Bot):
     async def setup_hook(self) -> None:
         init_db()
+        self.backup_task = self.loop.create_task(database_backup_loop())
         await load_extensions(self)
 
         guild = discord.Object(id=GUILD_ID)
