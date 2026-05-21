@@ -6,6 +6,7 @@ from config import (
     END_REWARD_AMOUNT,
     POST_ACTIVE_LIMIT,
     POST_ACTIVE_LIMIT_MULTITASKER,
+    POST_COUNT_EXCLUDED_FORUM_CHANNELS,
     POST_END_ROLES,
     PROMOTE_ADVANCED_DAILY_LIMIT,
     PROMOTE_COST,
@@ -35,6 +36,7 @@ def is_forum_post_channel(channel) -> bool:
     return (
         isinstance(channel, discord.Thread)
         and isinstance(channel.parent, discord.ForumChannel)
+        and channel.parent.id not in POST_COUNT_EXCLUDED_FORUM_CHANNELS
     )
 
 
