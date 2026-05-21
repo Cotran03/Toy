@@ -100,7 +100,7 @@ async def backups(ctx: commands.Context) -> None:
     backup_paths = await bot.loop.run_in_executor(None, list_backups)
     if not backup_paths:
         await ctx.message.delete()
-        await ctx.send("DB 백업본이 없습니다.", delete_after=10)
+        await ctx.send("DB 백업본이 없습니다.")
         return
 
     lines = ["사용 가능한 DB 백업본:"]
@@ -111,7 +111,7 @@ async def backups(ctx: commands.Context) -> None:
         lines.append(f"...외 {len(backup_paths) - 10}개")
 
     await ctx.message.delete()
-    await ctx.send("\n".join(lines), delete_after=30)
+    await ctx.send("\n".join(lines))
 
 
 @bot.command(name="restoredb")
@@ -143,7 +143,6 @@ async def restoredb(ctx: commands.Context, backup_name: str | None = None) -> No
     await ctx.message.delete()
     await ctx.send(
         f"DB 복구 완료: `{restored_from.name}`\n복구 전 안전 백업: `{safety_text}`\n봇 재시작을 권장합니다.",
-        delete_after=30,
     )
     await send_log(
         bot,
