@@ -258,13 +258,13 @@ class Balance(commands.Cog):
         if not claimed:
             await interaction.response.send_message(
                 "오늘은 이미 보상을 받았습니다. 내일 다시 시도해주세요.",
-                ephemeral=True,
+                ephemeral=False,
             )
             return
 
         await interaction.response.send_message(
             f"오늘의 보상으로 {DAILY_REWARD_AMOUNT} INS를 받았습니다.",
-            ephemeral=True,
+            ephemeral=False,
         )
         await send_log(self.bot, interaction.user, "/reward", "일일 보상 수령")
 
