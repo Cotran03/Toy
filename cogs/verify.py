@@ -31,7 +31,7 @@ class VerifyView(discord.ui.View):
 
         if scholar_role and scholar_role in member.roles:
             await interaction.response.send_message("이미 인증된 계정입니다.", ephemeral=True)
-            await send_system_log(self.bot, "인증 시도", "이미 인증된 계정")
+            await send_system_log(self.bot, "인증 시도", f"이미 인증된 계정 — {member} ({member.id})")
             return
 
         try:
@@ -44,7 +44,7 @@ class VerifyView(discord.ui.View):
                 "역할 부여에 실패했습니다. 관리자에게 문의해주세요.",
                 ephemeral=True,
             )
-            await send_system_log(self.bot, "인증 실패", "역할 부여 실패 — 권한 부족")
+            await send_system_log(self.bot, "인증 실패", f"역할 부여 실패 — {member} ({member.id})")
             return
 
         await interaction.response.defer()

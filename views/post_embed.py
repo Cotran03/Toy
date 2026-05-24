@@ -42,19 +42,25 @@ def promote_remaining_embed(used: int, limit: int) -> discord.Embed:
     )
 
 
-def not_forum_post_embed() -> discord.Embed:
+def not_forum_post_embed(
+    title: str = "사용 불가",
+    description: str = "이 명령어는 포럼 채널의 포스트 안에서만 사용할 수 있습니다.",
+) -> discord.Embed:
     return discord.Embed(
-        title="사용 불가",
-        description="이 명령어는 포럼 채널의 포스트 안에서만 사용할 수 있습니다.",
+        title=title,
+        description=description,
         color=0xED4245,
         timestamp=_now(),
     )
 
 
-def no_permission_embed() -> discord.Embed:
+def post_no_permission_embed(
+    title: str = "권한 없음",
+    description: str = "이 명령어를 사용할 권한이 없습니다.",
+) -> discord.Embed:
     return discord.Embed(
-        title="권한 없음",
-        description="이 명령어를 사용할 권한이 없습니다.",
+        title=title,
+        description=description,
         color=0xED4245,
         timestamp=_now(),
     )

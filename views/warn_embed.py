@@ -63,46 +63,61 @@ def warn_expire_notice_embed(user: discord.User | None, count: int, total: int) 
     return embed
 
 
-def no_permission_embed() -> discord.Embed:
+def warn_no_permission_embed(
+    title: str = "권한 없음",
+    description: str = "이 명령어를 사용할 권한이 없습니다.",
+) -> discord.Embed:
     return discord.Embed(
-        title="권한 없음",
-        description="이 명령어를 사용할 권한이 없습니다.",
+        title=title,
+        description=description,
         color=0xED4245,
         timestamp=_now(),
     )
 
 
-def missing_arg_embed() -> discord.Embed:
+def missing_arg_embed(
+    title: str = "사용법 오류",
+    description: str = "사용법: `&warn @멤버 횟수 사유`",
+) -> discord.Embed:
     return discord.Embed(
-        title="사용법 오류",
-        description="사용법: `&warn @멤버 횟수 사유`",
+        title=title,
+        description=description,
         color=0xED4245,
         timestamp=_now(),
     )
 
 
-def member_not_found_embed() -> discord.Embed:
+def member_not_found_embed(
+    title: str = "오류",
+    description: str = "해당 멤버를 찾을 수 없습니다.",
+) -> discord.Embed:
     return discord.Embed(
-        title="오류",
-        description="해당 멤버를 찾을 수 없습니다.",
+        title=title,
+        description=description,
         color=0xED4245,
         timestamp=_now(),
     )
 
 
-def invalid_count_embed() -> discord.Embed:
+def invalid_count_embed(
+    title: str = "오류",
+    description: str = "경고 횟수는 **1 이상의 정수**로 입력해주세요.",
+) -> discord.Embed:
     return discord.Embed(
-        title="오류",
-        description="경고 횟수는 **1 이상의 정수**로 입력해주세요.",
+        title=title,
+        description=description,
         color=0xED4245,
         timestamp=_now(),
     )
 
 
-def no_warnings_embed() -> discord.Embed:
+def no_warnings_embed(
+    title: str = "오류",
+    description: str = "해당 유저에게 유효한 경고가 없습니다.",
+) -> discord.Embed:
     return discord.Embed(
-        title="오류",
-        description="해당 유저에게 유효한 경고가 없습니다.",
+        title=title,
+        description=description,
         color=0xED4245,
         timestamp=_now(),
     )

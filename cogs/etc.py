@@ -74,8 +74,9 @@ class Etc(commands.Cog):
         await send_log(self.bot, interaction.user, "/ping", f"봇 응답 속도 확인 — {latency:.2f}ms")
 
     @app_commands.command(name="info", description="본인의 서버 정보를 확인합니다.")
+    @app_commands.describe(보이기="다른 사용자에게도 보이게 할지 선택합니다.")
     @app_commands.guilds(GUILD)
-    async def info(self, interaction: discord.Interaction) -> None:
+    async def info(self, interaction: discord.Interaction, 보이기: bool = False) -> None:
         member = interaction.user
         ensure_user(member.id)
 
@@ -92,7 +93,7 @@ class Etc(commands.Cog):
             "balance": get_balance(member.id),
         }
 
-        await interaction.response.send_message(embed=info_embed(member, info_data), ephemeral=True)
+        await interaction.response.send_message(embed=info_embed(member, info_data), ephemeral=not 보이기)
         await send_log(self.bot, member, "/info", "개인 정보 조회")
 
 

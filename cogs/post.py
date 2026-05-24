@@ -22,8 +22,8 @@ from services.post_service import (
 from utils.send_log import send_log
 from views.post_embed import (
     end_embed,
-    no_permission_embed,
     not_forum_post_embed,
+    post_no_permission_embed,
     promote_channel_embed,
     promote_cost_embed,
     promote_limit_embed,
@@ -119,14 +119,24 @@ class Post(commands.Cog):
     @app_commands.guilds(GUILD)
     async def end(self, interaction: discord.Interaction) -> None:
         if not is_forum_post(interaction):
-            await interaction.response.send_message(embed=not_forum_post_embed(), ephemeral=True)
+            await interaction.response.send_message(
+                embed=not_forum_post_embed(
+                    description="/end는 포럼 채널의 포스트 안에서만 사용할 수 있습니다.",
+                ),
+                ephemeral=True,
+            )
             return
 
         channel = interaction.channel
         member = interaction.user
 
         if not can_end_post(member, channel):
-            await interaction.response.send_message(embed=no_permission_embed(), ephemeral=True)
+            await interaction.response.send_message(
+                embed=post_no_permission_embed(
+                    description="이 포스트를 종료할 권한이 없습니다.\n포스트 작성자 또는 종료 권한이 있는 역할만 사용할 수 있습니다.",
+                ),
+                ephemeral=True,
+            )
             await send_log(self.bot, member, "/end", f"권한 없는 사용자 사용 시도 — 포스트: '{channel.name}'")
             return
 
@@ -151,14 +161,24 @@ class Post(commands.Cog):
     @app_commands.guilds(GUILD)
     async def promote(self, interaction: discord.Interaction) -> None:
         if not is_forum_post(interaction):
-            await interaction.response.send_message(embed=not_forum_post_embed(), ephemeral=True)
+            await interaction.response.send_message(
+                embed=not_forum_post_embed(
+                    description="/promote는 포럼 채널의 포스트 안에서만 사용할 수 있습니다.",
+                ),
+                ephemeral=True,
+            )
             return
 
         member = interaction.user
         channel = interaction.channel
 
         if not can_promote(member):
-            await interaction.response.send_message(embed=no_permission_embed(), ephemeral=True)
+            await interaction.response.send_message(
+                embed=post_no_permission_embed(
+                    description="이 포스트를 홍보할 권한이 없습니다.\n홍보자 혹은 홍보대사 역할이 있는 사용자만 사용할 수 있습니다.",
+                ),
+                ephemeral=True,
+            )
             await send_log(self.bot, member, "/promote", "권한 없는 사용자 사용 시도")
             return
 

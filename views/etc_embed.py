@@ -20,7 +20,7 @@ def info_embed(member: discord.Member, info: dict) -> discord.Embed:
     else:
         embed.add_field(
             name="고급 정보",
-            value="'정보보기' 역할이 있으면 경고나 홍보 사용 횟수 등의 더 많은 정보를 확인할 수 있습니다.",
+            value="'더보기' 역할이 있으면 경고나 홍보 사용 횟수 등의 더 많은 정보를 확인할 수 있습니다.",
             inline=False,
         )
 
