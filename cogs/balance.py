@@ -59,6 +59,33 @@ class StoreView(discord.ui.View):
     def _refresh_role_options(self) -> None:
         self.role_select.options = self._build_role_options()
 
+    async def _send_ephemeral(
+        self,
+        interaction: discord.Interaction,
+        embed: discord.Embed,
+    ) -> None:
+        if interaction.response.is_done():
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    async def _resolve_member(self, interaction: discord.Interaction) -> discord.Member | None:
+        if isinstance(interaction.user, discord.Member):
+            return interaction.user
+
+        if interaction.guild is None:
+            return None
+
+        member = interaction.guild.get_member(interaction.user.id)
+        if member is not None:
+            return member
+
+        try:
+            return await interaction.guild.fetch_member(interaction.user.id)
+        except discord.NotFound:
+            return None
+
     async def _ensure_owner(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id == self.user_id:
             return True
@@ -67,7 +94,7 @@ class StoreView(discord.ui.View):
             "구매 실패",
             "이 상점은 해당 명령어를 실행한 사용자만 사용할 수 있습니다.",
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await self._send_ephemeral(interaction, embed)
         await send_log(
             interaction.client,
             interaction.user,
@@ -94,7 +121,7 @@ class StoreView(discord.ui.View):
             price=price,
             current_balance=current_balance,
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await self._send_ephemeral(interaction, embed)
 
         details = f"역할 구매 실패 / 사유: {reason}"
         if role_name is not None:
@@ -148,7 +175,16 @@ class StoreView(discord.ui.View):
             )
             return
 
-        member = interaction.user
+        member = await self._resolve_member(interaction)
+        if member is None:
+            await self._send_purchase_failure(
+                interaction,
+                "구매 실패",
+                "사용자 정보를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+                reason="멤버 정보 없음",
+            )
+            return
+
         can_purchase, reason, role, item, balance = can_purchase_store_role(
             member,
             guild,

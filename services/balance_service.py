@@ -66,12 +66,12 @@ def can_purchase_store_role(
     if role in member.roles:
         return False, "already_owned", role, item, balance
 
+    if balance < item["price"]:
+        return False, "insufficient_balance", role, item, balance
+
     role_ids = {owned_role.id for owned_role in member.roles}
     if role_id == ROLE_PROMOTER_ADVANCED and ROLE_PROMOTER not in role_ids:
         return False, "missing_promoter", role, item, balance
-
-    if balance < item["price"]:
-        return False, "insufficient_balance", role, item, balance
 
     return True, "ok", role, item, balance
 
