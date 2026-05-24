@@ -6,6 +6,9 @@ from utils.send_log import send_log, send_system_log
 from views.verify_embed import verify_embed
 
 
+VERIFY_DM_MESSAGE = "인증이 완료되었습니다. 서버 규칙을 반드시 정독해 주시길 바랍니다."
+
+
 class VerifyView(discord.ui.View):
     def __init__(self, bot: commands.Bot):
         super().__init__(timeout=None)
@@ -45,7 +48,17 @@ class VerifyView(discord.ui.View):
             return
 
         await interaction.response.defer()
-        await send_system_log(self.bot, "인증 성공", f"'{member}' ({member.id}) 역할 부여 완료")
+
+        dm_sent = True
+        try:
+            await member.send(VERIFY_DM_MESSAGE)
+        except (discord.Forbidden, discord.HTTPException):
+            dm_sent = False
+
+        log_details = f"'{member}' ({member.id}) 역할 부여 완료"
+        if not dm_sent:
+            log_details += "\nDM 전송 실패"
+        await send_system_log(self.bot, "인증 성공", log_details)
 
 
 class Verify(commands.Cog):
