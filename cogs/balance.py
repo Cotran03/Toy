@@ -86,23 +86,6 @@ class StoreView(discord.ui.View):
         except discord.NotFound:
             return None
 
-    async def _ensure_owner(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id == self.user_id:
-            return True
-
-        embed = store_purchase_failed_embed(
-            "구매 실패",
-            "이 상점은 해당 명령어를 실행한 사용자만 사용할 수 있습니다.",
-        )
-        await self._send_ephemeral(interaction, embed)
-        await send_log(
-            interaction.client,
-            interaction.user,
-            "/store",
-            "역할 구매 실패 / 사유: 다른 사용자의 상점 조작 시도",
-        )
-        return False
-
     async def _send_purchase_failure(
         self,
         interaction: discord.Interaction,
@@ -134,9 +117,6 @@ class StoreView(discord.ui.View):
         await send_log(interaction.client, interaction.user, "/store", details)
 
     async def select_role(self, interaction: discord.Interaction) -> None:
-        if not await self._ensure_owner(interaction):
-            return
-
         self.selected_role_id = int(self.role_select.values[0])
         self._refresh_role_options()
         await interaction.response.edit_message(
@@ -153,9 +133,6 @@ class StoreView(discord.ui.View):
         interaction: discord.Interaction,
         button: discord.ui.Button,
     ) -> None:
-        if not await self._ensure_owner(interaction):
-            return
-
         if self.selected_role_id is None:
             await self._send_purchase_failure(
                 interaction,

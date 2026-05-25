@@ -3,13 +3,12 @@ import os
 import discord
 from discord.ext import commands
 
-from config import GUILD_ID, TOKEN
+from config import GUILD_ID, TOKEN, ADMIN_PREFIX
 from db.backups import database_backup_loop, list_backups, restore_database
 from db.database import init_db
 from utils.send_log import send_log
 
 
-COMMAND_PREFIX = "&"
 COG_DIR = "cogs"
 
 intents = discord.Intents.all()
@@ -38,7 +37,7 @@ class MyBot(commands.Bot):
 
 
 bot = MyBot(
-    command_prefix=COMMAND_PREFIX,
+    command_prefix=ADMIN_PREFIX,
     intents=intents,
     help_command=None,
 )

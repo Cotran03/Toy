@@ -47,7 +47,10 @@ class VerifyView(discord.ui.View):
             await send_system_log(self.bot, "인증 실패", f"역할 부여 실패 — {member} ({member.id})")
             return
 
-        await interaction.response.defer()
+        try:
+            await interaction.response.defer()
+        except (discord.NotFound, discord.InteractionResponded):
+            pass
 
         dm_sent = True
         try:
