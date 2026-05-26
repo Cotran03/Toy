@@ -26,8 +26,9 @@ STORE_TIMEOUT_SECONDS = 180
 
 
 class StoreView(discord.ui.View):
-    def __init__(self, user_id: int, guild: discord.Guild):
+    def __init__(self, bot: commands.Bot, user_id: int, guild: discord.Guild):
         super().__init__(timeout=STORE_TIMEOUT_SECONDS)
+        self.bot = bot
         self.user_id = user_id
         self.guild = guild
         self.selected_role_id: int | None = None
@@ -114,7 +115,7 @@ class StoreView(discord.ui.View):
         if current_balance is not None:
             details += f" / 잔액: {current_balance} INS"
 
-        await send_log(interaction.client, interaction.user, "/store", details)
+        await send_log(self.bot, interaction.user, "/store", details)
 
     async def select_role(self, interaction: discord.Interaction) -> None:
         self.selected_role_id = int(self.role_select.values[0])
@@ -245,7 +246,7 @@ class StoreView(discord.ui.View):
             view=self,
         )
         await send_log(
-            interaction.client,
+            self.bot,
             member,
             "/store",
             f"역할 구매 성공 / 역할: {role.name} / 사용: {price} INS / 잔액: {new_balance} INS",
@@ -285,7 +286,7 @@ class Balance(commands.Cog):
     @app_commands.guilds(GUILD)
     async def store(self, interaction: discord.Interaction) -> None:
         current_balance = get_user_balance(interaction.user.id)
-        view = StoreView(interaction.user.id, interaction.guild)
+        view = StoreView(self.bot, interaction.user.id, interaction.guild)
         await interaction.response.send_message(
             embed=store_embed(interaction.guild, current_balance),
             view=view,

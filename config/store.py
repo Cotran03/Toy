@@ -22,27 +22,27 @@ STORE_ITEMS = {
     },
     ROLE_SUGGESTER: {
         "label": "제안자",
-        "price": 5000,
+        "price": 10000,
         "description": "정기토론 주제 추천 가능",
     },
     ROLE_SPEAKER: {
         "label": "연설자",
-        "price": 5000,
+        "price": 10000,
         "description": "스테이지 채널에서 연설 가능",
     },
     ROLE_INFO_ADVANCED: {
         "label": "더보기",
-        "price": 2000,
+        "price": 3000,
         "description": "/info 기능 확장 권한",
     },
     ROLE_MULTITASKER: {
         "label": "멀티태스커",
-        "price": 8000,
+        "price": 12000,
         "description": "동시 토론 진행 수 증가(3회)",
     },
     ROLE_HISTORIAN: {
         "label": "역사가",
-        "price": 5000,
+        "price": 7000,
         "description": "아카이브 열람 권한",
     },
 }
