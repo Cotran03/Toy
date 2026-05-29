@@ -19,6 +19,7 @@ def init_db() -> None:
                 promote_count        INTEGER NOT NULL DEFAULT 0,
                 total_promote_count  INTEGER NOT NULL DEFAULT 0,
                 last_reward_date     TEXT,
+                reward_streak        INTEGER NOT NULL DEFAULT 0,
                 last_promote_date    TEXT,
                 is_banned            INTEGER NOT NULL DEFAULT 0
             )
@@ -30,12 +31,22 @@ def init_db() -> None:
             "ALTER TABLE users ADD COLUMN last_promote_date    TEXT",
             "ALTER TABLE users ADD COLUMN end_count            INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN total_promote_count  INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN reward_streak        INTEGER NOT NULL DEFAULT 0",
         ]
         for sql in migrations:
             try:
                 cursor.execute(sql)
             except sqlite3.OperationalError:
                 pass
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET reward_streak = 1
+            WHERE last_reward_date IS NOT NULL
+              AND reward_streak = 0
+            """
+        )
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS warnings (

@@ -4,17 +4,20 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import GUILD_ID, ROLE_INFO_ADVANCED
+from config import ADMIN_INFO_ROLES, CLEAR_ROLES, GUILD_ID, ROLE_INFO_ADVANCED
 from db.database import (
     ensure_user,
     get_active_post_count,
     get_balance,
     get_end_count,
+    get_last_reward_date,
     get_post_count,
+    get_reward_streak,
     get_total_promote_count,
     get_warning_count,
 )
 from utils.send_log import send_log
+from utils.check_permission import has_any_role
 from views.etc_embed import info_embed
 
 
@@ -41,9 +44,26 @@ class Etc(commands.Cog):
 
         return joined_at.strftime("%Y-%m-%d %H:%M:%S"), f"{days}일 {hours}시간"
 
+    def _build_info_data(self, member: discord.Member, *, advanced: bool | None = None) -> dict:
+        ensure_user(member.id)
+        joined_text, elapsed_text = self._build_join_info(member)
+        return {
+            "joined_text": joined_text,
+            "elapsed_text": elapsed_text,
+            "is_advanced": self._has_info_advanced_role(member) if advanced is None else advanced,
+            "post_count": get_post_count(member.id),
+            "end_count": get_end_count(member.id),
+            "active_post_count": get_active_post_count(member.id),
+            "total_promote_count": get_total_promote_count(member.id),
+            "warning_count": get_warning_count(member.id),
+            "balance": get_balance(member.id),
+            "reward_streak": get_reward_streak(member.id),
+            "last_reward_date": get_last_reward_date(member.id),
+        }
+
     @commands.command(name="clear")
     async def clear(self, ctx: commands.Context, amount: int | None = None) -> None:
-        if not ctx.author.guild_permissions.administrator:
+        if not has_any_role(ctx.author, CLEAR_ROLES):
             await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&clear", "권한 없는 사용자가 명령어 사용 시도")
             return
@@ -78,23 +98,22 @@ class Etc(commands.Cog):
     @app_commands.guilds(GUILD)
     async def info(self, interaction: discord.Interaction, 보이기: bool = False) -> None:
         member = interaction.user
-        ensure_user(member.id)
-
-        joined_text, elapsed_text = self._build_join_info(member)
-        info_data = {
-            "joined_text": joined_text,
-            "elapsed_text": elapsed_text,
-            "is_advanced": self._has_info_advanced_role(member),
-            "post_count": get_post_count(member.id),
-            "end_count": get_end_count(member.id),
-            "active_post_count": get_active_post_count(member.id),
-            "total_promote_count": get_total_promote_count(member.id),
-            "warning_count": get_warning_count(member.id),
-            "balance": get_balance(member.id),
-        }
+        info_data = self._build_info_data(member)
 
         await interaction.response.send_message(embed=info_embed(member, info_data), ephemeral=not 보이기)
         await send_log(self.bot, member, "/info", "개인 정보 조회")
+
+
+    @commands.command(name="info")
+    async def admin_info(self, ctx: commands.Context, member: discord.Member) -> None:
+        if not has_any_role(ctx.author, ADMIN_INFO_ROLES):
+            await ctx.message.delete()
+            await send_log(self.bot, ctx.author, "&info", "권한 없는 사용자")
+            return
+
+        info_data = self._build_info_data(member, advanced=True)
+        await ctx.send(embed=info_embed(member, info_data))
+        await send_log(self.bot, ctx.author, "&info", f"대상: {member}")
 
 
 async def setup(bot: commands.Bot) -> None:

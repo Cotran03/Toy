@@ -30,6 +30,33 @@ def store_embed(
     return embed
 
 
+def reward_embed(
+    *,
+    claimed: bool,
+    amount: int,
+    balance: int,
+    reward_streak: int,
+    last_reward_date: str | None,
+) -> discord.Embed:
+    if claimed:
+        embed = discord.Embed(
+            title="일일 보상 수령 완료",
+            description=f"오늘의 보상으로 {amount} INS를 받았습니다.",
+            color=0x57F287,
+        )
+    else:
+        embed = discord.Embed(
+            title="이미 수령한 보상",
+            description="오늘은 이미 보상을 받았습니다. 내일 다시 시도해 주세요.",
+            color=0xFEE75C,
+        )
+
+    embed.add_field(name="현재 INS", value=f"{balance:,}", inline=True)
+    embed.add_field(name="연속 출석 일수", value=f"{reward_streak}일", inline=True)
+    embed.add_field(name="마지막 수령일", value=last_reward_date or "없음", inline=True)
+    return embed
+
+
 def store_purchase_result_embed(
     role_name: str,
     price: int,

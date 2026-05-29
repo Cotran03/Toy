@@ -10,7 +10,13 @@ from .posts import (
     increment_post_count,
 )
 from .promotes import get_promote_info, get_total_promote_count, increment_promote
-from .rewards import can_claim_reward, set_reward_claimed
+from .rewards import (
+    can_claim_reward,
+    claim_reward,
+    get_last_reward_date,
+    get_reward_streak,
+    set_reward_claimed,
+)
 from .schema import init_db
 from .users import ensure_user, get_user
 from .warnings import (

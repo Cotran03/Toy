@@ -2,7 +2,7 @@
 from .bot import ADMIN_PREFIX, GUILD_ID, TOKEN
 from .channels import LOG_CHANNEL, PROMOTE_CHANNEL, VERIFY_CHANNEL, WARN_NOTICE_CHANNEL
 from .economy import DAILY_REWARD_AMOUNT, END_REWARD_AMOUNT, PROMOTE_COST, WARN_PENALTY
-from .permissions import BALANCER_ROLES, POST_END_ROLES, WARN_ROLES
+from .permissions import ADMIN_INFO_ROLES, BALANCER_ROLES, CLEAR_ROLES, POST_END_ROLES, WARN_ROLES
 from .post import (
     POST_ACTIVE_LIMIT,
     POST_ACTIVE_LIMIT_MULTITASKER,
@@ -13,6 +13,7 @@ from .post import (
 from .promote import PROMOTE_ADVANCED_DAILY_LIMIT, PROMOTE_DAILY_LIMIT
 from .roles import (
     ROLE_HISTORIAN,
+    ROLE_ADMIN,
     ROLE_INFO_ADVANCED,
     ROLE_MULTITASKER,
     ROLE_PROMOTER,
@@ -25,6 +26,8 @@ from .roles import (
     ROLE_TOTAL,
     ROLE_UNVERIFIED,
     ROLE_USER_ADMIN,
+    USER_CREATER,
+    USER_CREATOR,
 )
 from .store import STORE_ITEMS
 from .verify import VERIFY_MESSAGE_ID

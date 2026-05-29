@@ -7,12 +7,12 @@ from config import DAILY_REWARD_AMOUNT, ROLE_PROMOTER, ROLE_PROMOTER_ADVANCED, S
 # Import DB
 from db.database import (
     add_balance,
-    can_claim_reward,
+    claim_reward,
     deduct_balance,
     ensure_user,
     get_balance,
+    get_last_reward_date,
     set_balance,
-    set_reward_claimed,
 )
 
 
@@ -21,15 +21,13 @@ def get_user_balance(user_id: int) -> int:
     return get_balance(user_id)
 
 
-def claim_daily_reward(user_id: int) -> tuple[bool, int]:
-    """Claim the daily reward. Returns (claimed, current_balance)."""
-    ensure_user(user_id)
-    if not can_claim_reward(user_id):
-        return False, get_balance(user_id)
+def claim_daily_reward(user_id: int) -> tuple[bool, int, int, str | None]:
+    """Claim the daily reward.
 
-    new_balance = add_balance(user_id, DAILY_REWARD_AMOUNT)
-    set_reward_claimed(user_id)
-    return True, new_balance
+    Returns (claimed, current_balance, reward_streak, last_reward_date).
+    """
+    claimed, current_balance, reward_streak = claim_reward(user_id, DAILY_REWARD_AMOUNT)
+    return claimed, current_balance, reward_streak, get_last_reward_date(user_id)
 
 
 def add_user_balance(user_id: int, amount: int) -> int:

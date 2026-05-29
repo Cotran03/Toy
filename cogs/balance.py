@@ -15,6 +15,7 @@ from services.balance_service import (
 from utils.check_permission import has_any_role
 from utils.send_log import send_log
 from views.balance_embed import (
+    reward_embed,
     store_embed,
     store_purchase_failed_embed,
     store_purchase_result_embed,
@@ -268,19 +269,42 @@ class Balance(commands.Cog):
     @app_commands.command(name="reward", description="하루에 한 번 INS를 받습니다.")
     @app_commands.guilds(GUILD)
     async def reward(self, interaction: discord.Interaction) -> None:
-        claimed, _ = claim_daily_reward(interaction.user.id)
+        claimed, balance, reward_streak, last_reward_date = claim_daily_reward(interaction.user.id)
         if not claimed:
             await interaction.response.send_message(
-                "오늘은 이미 보상을 받았습니다. 내일 다시 시도해주세요.",
+                embed=reward_embed(
+                    claimed=False,
+                    amount=DAILY_REWARD_AMOUNT,
+                    balance=balance,
+                    reward_streak=reward_streak,
+                    last_reward_date=last_reward_date,
+                ),
                 ephemeral=False,
+            )
+            await send_log(
+                self.bot,
+                interaction.user,
+                "/reward",
+                f"이미 수령한 일일 보상 요청 / 잔액: {balance} INS / 연속 출석: {reward_streak}일 / 마지막 수령일: {last_reward_date}",
             )
             return
 
         await interaction.response.send_message(
-            f"오늘의 보상으로 {DAILY_REWARD_AMOUNT} INS를 받았습니다.",
+            embed=reward_embed(
+                claimed=True,
+                amount=DAILY_REWARD_AMOUNT,
+                balance=balance,
+                reward_streak=reward_streak,
+                last_reward_date=last_reward_date,
+            ),
             ephemeral=False,
         )
-        await send_log(self.bot, interaction.user, "/reward", "일일 보상 수령")
+        await send_log(
+            self.bot,
+            interaction.user,
+            "/reward",
+            f"일일 보상 수령 / 지급: {DAILY_REWARD_AMOUNT} INS / 잔액: {balance} INS / 연속 출석: {reward_streak}일",
+        )
 
     @app_commands.command(name="store", description="INS로 역할을 구매합니다.")
     @app_commands.guilds(GUILD)

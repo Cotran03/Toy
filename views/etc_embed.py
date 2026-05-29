@@ -11,7 +11,10 @@ def info_embed(member: discord.Member, info: dict) -> discord.Embed:
     embed.add_field(name="가입 후 시간", value=info["elapsed_text"], inline=False)
     embed.add_field(name="보유 INS", value=f"{info['balance']:,}", inline=True)
 
+    embed.add_field(name="연속 출석 일수", value=f"{info['reward_streak']}일", inline=True)
+
     if info["is_advanced"]:
+        embed.add_field(name="마지막 보상 수령일", value=info["last_reward_date"] or "없음", inline=True)
         embed.add_field(name="게시한 토론 수", value=str(info["post_count"]), inline=True)
         embed.add_field(name="진행 중 토론 수", value=str(info["active_post_count"]), inline=True)
         embed.add_field(name="종료한 토론 수", value=str(info["end_count"]), inline=True)
