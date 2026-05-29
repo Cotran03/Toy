@@ -26,7 +26,6 @@ from .roles import (
     ROLE_TOTAL,
     ROLE_UNVERIFIED,
     ROLE_USER_ADMIN,
-    USER_CREATER,
     USER_CREATOR,
 )
 from .store import STORE_ITEMS

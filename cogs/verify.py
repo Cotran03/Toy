@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from config import ROLE_SCHOLAR, ROLE_UNVERIFIED, USER_CREATER, VERIFY_CHANNEL, VERIFY_MESSAGE_ID
+from config import ROLE_SCHOLAR, ROLE_UNVERIFIED, USER_CREATOR, VERIFY_CHANNEL, VERIFY_MESSAGE_ID
 from utils.send_log import send_log, send_system_log
 from views.verify_embed import verify_embed
 
@@ -95,7 +95,7 @@ class Verify(commands.Cog):
 
     @commands.command(name="sendverify")
     async def sendverify(self, ctx: commands.Context) -> None:
-        if ctx.author.id != USER_CREATER:
+        if ctx.author.id != USER_CREATOR:
             await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&sendverify", "권한 없는 사용자가 명령어 사용 시도")
             return

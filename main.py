@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import GUILD_ID, TOKEN, ADMIN_PREFIX, USER_CREATER
+from config import GUILD_ID, TOKEN, ADMIN_PREFIX, USER_CREATOR
 from db.backups import database_backup_loop, list_backups, restore_database
 from db.database import init_db
 from utils.send_log import send_log
@@ -77,7 +77,7 @@ async def on_ready() -> None:
 @bot.command(name="sync")
 async def sync(ctx: commands.Context) -> None:
     """관리자 전용: 슬래시 커맨드를 길드에 동기화합니다."""
-    if ctx.author.id != USER_CREATER:
+    if ctx.author.id != USER_CREATOR:
         await ctx.message.delete()
         await send_log(bot, ctx.author, "&sync", "권한 없는 사용자가 명령어 사용 시도")
         return
@@ -93,7 +93,7 @@ async def sync(ctx: commands.Context) -> None:
 @bot.command(name="reload")
 async def reload(ctx: commands.Context) -> None:
     """관리자 전용: 모든 Cog를 다시 불러옵니다."""
-    if ctx.author.id != USER_CREATER:
+    if ctx.author.id != USER_CREATOR:
         await ctx.message.delete()
         await send_log(bot, ctx.author, "&reload", "권한 없는 사용자가 명령어 사용 시도")
         return
@@ -117,7 +117,7 @@ async def reload(ctx: commands.Context) -> None:
 @bot.command(name="backups")
 async def backups(ctx: commands.Context) -> None:
     """Admin only: list available database backups."""
-    if ctx.author.id != USER_CREATER:
+    if ctx.author.id != USER_CREATOR:
         await ctx.message.delete()
         await send_log(bot, ctx.author, "&backups", "권한 없는 사용자가 명령어 사용 시도")
         return
@@ -142,7 +142,7 @@ async def backups(ctx: commands.Context) -> None:
 @bot.command(name="restoredb")
 async def restoredb(ctx: commands.Context, backup_name: str | None = None) -> None:
     """Admin only: restore the database from a backup."""
-    if ctx.author.id != USER_CREATER:
+    if ctx.author.id != USER_CREATOR:
         await ctx.message.delete()
         await send_log(bot, ctx.author, "&restoredb", "권한 없는 사용자가 명령어 사용 시도")
         return
