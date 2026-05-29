@@ -1,10 +1,11 @@
 from datetime import datetime
+import re
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import ADMIN_INFO_ROLES, CLEAR_ROLES, GUILD_ID, ROLE_INFO_ADVANCED
+from config import ADMIN_INFO_ROLES, BOT_COMMAND_CHANNEL, CLEAR_ROLES, GUILD_ID, ROLE_INFO_ADVANCED
 from db.database import (
     ensure_user,
     get_active_post_count,
@@ -23,6 +24,7 @@ from views.etc_embed import info_embed
 
 GUILD = discord.Object(id=GUILD_ID)
 CLEAR_LIMIT = 100
+USER_ID_PATTERN = re.compile(r"^(?:<@!?(\d+)>|(\d{15,25}))$")
 
 
 class Etc(commands.Cog):
@@ -60,6 +62,38 @@ class Etc(commands.Cog):
             "reward_streak": get_reward_streak(member.id),
             "last_reward_date": get_last_reward_date(member.id),
         }
+
+    async def _resolve_member(self, ctx: commands.Context, target: str | None) -> discord.Member | None:
+        if target is None:
+            return None
+
+        target = target.strip()
+        if not target:
+            return None
+
+        guild = ctx.guild
+        if guild is None:
+            return None
+
+        match = USER_ID_PATTERN.match(target)
+        if match:
+            user_id = int(match.group(1) or match.group(2))
+            member = guild.get_member(user_id)
+            if member is not None:
+                return member
+
+            try:
+                return await guild.fetch_member(user_id)
+            except (discord.NotFound, discord.HTTPException):
+                return None
+
+        try:
+            return await commands.MemberConverter().convert(ctx, target)
+        except commands.BadArgument:
+            return None
+
+    def _bot_command_channel(self) -> discord.abc.Messageable | None:
+        return self.bot.get_channel(BOT_COMMAND_CHANNEL)
 
     @commands.command(name="clear")
     async def clear(self, ctx: commands.Context, amount: int | None = None) -> None:
@@ -105,14 +139,27 @@ class Etc(commands.Cog):
 
 
     @commands.command(name="info")
-    async def admin_info(self, ctx: commands.Context, member: discord.Member) -> None:
+    async def admin_info(self, ctx: commands.Context, *, target: str | None = None) -> None:
         if not has_any_role(ctx.author, ADMIN_INFO_ROLES):
             await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&info", "권한 없는 사용자")
             return
 
+        member = await self._resolve_member(ctx, target)
+        if member is None:
+            await ctx.message.delete()
+            await send_log(self.bot, ctx.author, "&info", "사용법: &info 유저ID")
+            return
+
+        channel = self._bot_command_channel()
+        if channel is None:
+            await ctx.message.delete()
+            await send_log(self.bot, ctx.author, "&info", "BOT_COMMAND_CHANNEL not found")
+            return
+
         info_data = self._build_info_data(member, advanced=True)
-        await ctx.send(embed=info_embed(member, info_data))
+        await channel.send(embed=info_embed(member, info_data))
+        await ctx.message.delete()
         await send_log(self.bot, ctx.author, "&info", f"대상: {member}")
 
 
