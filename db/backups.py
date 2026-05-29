@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
-from .connection import DB_PATH
+from .connection import DB_PATH, database_lock
 
 
 BACKUP_INTERVAL_SECONDS = 60 * 60
@@ -22,34 +22,35 @@ def _backup_path(now: datetime | None = None) -> Path:
 
 def backup_database() -> Path:
     """Create a consistent SQLite backup and return the backup path."""
-    source_path = Path(DB_PATH)
-    if not source_path.exists() or source_path.stat().st_size == 0:
-        raise FileNotFoundError(f"Database is not ready: {source_path}")
+    with database_lock():
+        source_path = Path(DB_PATH)
+        if not source_path.exists() or source_path.stat().st_size == 0:
+            raise FileNotFoundError(f"Database is not ready: {source_path}")
 
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    destination_path = _backup_path()
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        destination_path = _backup_path()
 
-    try:
-        source_uri = f"{source_path.resolve().as_uri()}?mode=ro"
-        source = sqlite3.connect(source_uri, uri=True)
         try:
-            destination = sqlite3.connect(destination_path)
+            source_uri = f"{source_path.resolve().as_uri()}?mode=ro"
+            source = sqlite3.connect(source_uri, uri=True)
             try:
-                source.backup(destination)
+                destination = sqlite3.connect(destination_path)
+                try:
+                    source.backup(destination)
+                finally:
+                    destination.close()
             finally:
-                destination.close()
-        finally:
-            source.close()
-    except Exception:
-        destination_path.unlink(missing_ok=True)
-        Path(f"{destination_path}-journal").unlink(missing_ok=True)
-        raise
+                source.close()
+        except Exception:
+            destination_path.unlink(missing_ok=True)
+            Path(f"{destination_path}-journal").unlink(missing_ok=True)
+            raise
 
-    journal_path = Path(f"{destination_path}-journal")
-    if journal_path.exists():
-        journal_path.unlink()
+        journal_path = Path(f"{destination_path}-journal")
+        if journal_path.exists():
+            journal_path.unlink()
 
-    return destination_path
+        return destination_path
 
 
 def list_backups() -> list[Path]:
@@ -85,29 +86,34 @@ def resolve_backup(identifier: str) -> Path:
 
 def restore_database(identifier: str) -> tuple[Path, Path | None]:
     """Restore DB_PATH from a backup. Returns (restored_from, safety_backup)."""
-    backup_path = resolve_backup(identifier)
+    with database_lock():
+        backup_path = resolve_backup(identifier)
 
-    safety_backup = None
-    source_path = Path(DB_PATH)
-    if source_path.exists() and source_path.stat().st_size > 0:
-        safety_backup = backup_database()
+        safety_backup = None
+        source_path = Path(DB_PATH)
+        if source_path.exists() and source_path.stat().st_size > 0:
+            safety_backup = backup_database()
 
-    try:
-        source_uri = f"{backup_path.resolve().as_uri()}?mode=ro"
-        source = sqlite3.connect(source_uri, uri=True)
         try:
-            destination = sqlite3.connect(DB_PATH)
+            source_uri = f"{backup_path.resolve().as_uri()}?mode=ro"
+            source = sqlite3.connect(source_uri, uri=True)
             try:
-                source.backup(destination)
+                destination = sqlite3.connect(DB_PATH)
+                try:
+                    source.backup(destination)
+                finally:
+                    destination.close()
             finally:
-                destination.close()
-        finally:
-            source.close()
-    except Exception:
-        Path(f"{DB_PATH}-journal").unlink(missing_ok=True)
-        raise
+                source.close()
+        except Exception:
+            Path(f"{DB_PATH}-journal").unlink(missing_ok=True)
+            raise
 
-    return backup_path, safety_backup
+        from .schema import init_db
+
+        init_db()
+
+        return backup_path, safety_backup
 
 
 def prune_old_backups() -> int:

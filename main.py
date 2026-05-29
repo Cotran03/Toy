@@ -1,6 +1,7 @@
 import os
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from config import GUILD_ID, TOKEN, ADMIN_PREFIX, USER_CREATER
@@ -10,6 +11,7 @@ from utils.send_log import send_log
 
 
 COG_DIR = "cogs"
+RESTORE_IN_PROGRESS_MESSAGE = "DB 복구 중입니다. 잠시 후 다시 시도해 주세요."
 
 intents = discord.Intents.all()
 
@@ -25,7 +27,21 @@ async def load_extensions(bot: commands.Bot) -> None:
         await bot.load_extension(extension)
 
 
+class RestoreAwareCommandTree(app_commands.CommandTree):
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if getattr(self.client, "database_restore_in_progress", False):
+            await interaction.response.send_message(
+                RESTORE_IN_PROGRESS_MESSAGE,
+                ephemeral=True,
+            )
+            return False
+
+        return True
+
+
 class MyBot(commands.Bot):
+    database_restore_in_progress: bool = False
+
     async def setup_hook(self) -> None:
         init_db()
         self.backup_task = self.loop.create_task(database_backup_loop())
@@ -40,7 +56,17 @@ bot = MyBot(
     command_prefix=ADMIN_PREFIX,
     intents=intents,
     help_command=None,
+    tree_cls=RestoreAwareCommandTree,
 )
+
+
+@bot.check
+async def block_commands_during_database_restore(ctx: commands.Context) -> bool:
+    if bot.database_restore_in_progress:
+        await ctx.send(RESTORE_IN_PROGRESS_MESSAGE, delete_after=10)
+        return False
+
+    return True
 
 
 @bot.event
@@ -126,17 +152,21 @@ async def restoredb(ctx: commands.Context, backup_name: str | None = None) -> No
         await ctx.send("사용법: `&restoredb latest` 또는 `&restoredb 백업파일명.db`", delete_after=15)
         return
 
+    bot.database_restore_in_progress = True
     try:
-        restored_from, safety_backup = await bot.loop.run_in_executor(
-            None,
-            restore_database,
-            backup_name,
-        )
-    except Exception as exc:
-        await ctx.message.delete()
-        await ctx.send(f"DB 복구 실패: `{exc}`", delete_after=15)
-        await send_log(bot, ctx.author, "&restoredb", f"DB 복구 실패: {exc}")
-        return
+        try:
+            restored_from, safety_backup = await bot.loop.run_in_executor(
+                None,
+                restore_database,
+                backup_name,
+            )
+        except Exception as exc:
+            await ctx.message.delete()
+            await ctx.send(f"DB 복구 실패: `{exc}`", delete_after=15)
+            await send_log(bot, ctx.author, "&restoredb", f"DB 복구 실패: {exc}")
+            return
+    finally:
+        bot.database_restore_in_progress = False
 
     safety_text = safety_backup.name if safety_backup else "없음"
     await ctx.message.delete()
