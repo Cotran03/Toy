@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import BALANCER_ROLES, DAILY_REWARD_AMOUNT, GUILD_ID, STORE_ITEMS
+from config import BALANCER_ROLES, DAILY_REWARD_AMOUNT, ECONOMY_CHANNEL, GUILD_ID, STORE_ITEMS
 from services.balance_service import (
     add_user_balance,
     can_purchase_store_role,
@@ -15,6 +15,7 @@ from services.balance_service import (
 from utils.check_permission import has_any_role
 from utils.send_log import send_log
 from views.balance_embed import (
+    economy_admin_notice_embed,
     reward_embed,
     store_embed,
     store_purchase_failed_embed,
@@ -258,6 +259,42 @@ class Balance(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def _economy_channel(self) -> discord.abc.Messageable | None:
+        channel = self.bot.get_channel(ECONOMY_CHANNEL)
+        if channel is not None:
+            return channel
+
+        try:
+            return await self.bot.fetch_channel(ECONOMY_CHANNEL)
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException) as exc:
+            print(f"[economy_notice] 경제 채널 조회 실패 ({ECONOMY_CHANNEL}): {exc}")
+            return None
+
+    async def _send_economy_notice(
+        self,
+        moderator: discord.User | discord.Member,
+        member: discord.Member,
+        action: str,
+        amount_text: str,
+        reason: str,
+    ) -> None:
+        channel = await self._economy_channel()
+        if channel is None or not hasattr(channel, "send"):
+            return
+
+        try:
+            await channel.send(
+                embed=economy_admin_notice_embed(
+                    moderator,
+                    member,
+                    action,
+                    amount_text,
+                    reason,
+                )
+            )
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            print(f"[economy_notice] 경제 공지 전송 실패 ({ECONOMY_CHANNEL}): {exc}")
+
     async def _ensure_balancer(self, ctx: commands.Context, command_name: str) -> bool:
         if has_any_role(ctx.author, BALANCER_ROLES):
             return True
@@ -329,8 +366,9 @@ class Balance(commands.Cog):
         if not await self._ensure_balancer(ctx, "&addINS"):
             return
 
-        new_balance = add_user_balance(member.id, amount)
-        await ctx.send(f"{member.mention}님에게 {amount} INS를 추가했습니다. 현재 잔액: {new_balance} INS.")
+        add_user_balance(member.id, amount)
+        await ctx.send(f"{member.mention}님에게 {amount} INS를 추가했습니다.")
+        await self._send_economy_notice(ctx.author, member, "추가", f"+{amount:,} INS", reason)
         await send_log(self.bot, ctx.author, "&addINS", f"대상: {member} / {amount} INS / 사유: {reason}")
 
     @commands.command(name="delINS")
@@ -345,8 +383,9 @@ class Balance(commands.Cog):
         if not await self._ensure_balancer(ctx, "&delINS"):
             return
 
-        new_balance = deduct_user_balance(member.id, amount)
-        await ctx.send(f"{member.mention}님의 INS를 {amount}만큼 차감했습니다. 현재 잔액: {new_balance} INS.")
+        deduct_user_balance(member.id, amount)
+        await ctx.send(f"{member.mention}님의 INS를 {amount}만큼 차감했습니다.")
+        await self._send_economy_notice(ctx.author, member, "차감", f"-{amount:,} INS", reason)
         await send_log(self.bot, ctx.author, "&delINS", f"대상: {member} / {amount} INS / 사유: {reason}")
 
     @commands.command(name="resetINS")
@@ -360,9 +399,10 @@ class Balance(commands.Cog):
         if not await self._ensure_balancer(ctx, "&resetINS"):
             return
 
-        new_balance = reset_user_balance(member.id)
+        reset_user_balance(member.id)
         await ctx.send(f"{member.mention}님의 INS를 0으로 설정했습니다.")
-        await send_log(self.bot, ctx.author, "&resetINS", f"대상: {member} / 잔액: {new_balance} INS / 사유: {reason}")
+        await self._send_economy_notice(ctx.author, member, "초기화", "전체 INS 초기화", reason)
+        await send_log(self.bot, ctx.author, "&resetINS", f"대상: {member} / 초기화 / 사유: {reason}")
 
 
 async def setup(bot: commands.Bot) -> None:
