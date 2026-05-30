@@ -3,6 +3,10 @@ from datetime import datetime, timezone
 import discord
 
 
+def _display_name(user: discord.User | discord.Member) -> str:
+    return getattr(user, "display_name", user.name)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -27,7 +31,7 @@ def promote_channel_embed(user: discord.Member, channel: discord.Thread) -> disc
         timestamp=_now(),
     )
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.add_field(name="홍보자", value=str(user), inline=True)
+    embed.add_field(name="홍보자", value=_display_name(user), inline=True)
     embed.add_field(name="포스트", value=f"`{channel.name}`", inline=True)
     return embed
 

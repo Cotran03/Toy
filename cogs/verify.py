@@ -95,19 +95,18 @@ class Verify(commands.Cog):
 
     @commands.command(name="sendverify")
     async def sendverify(self, ctx: commands.Context) -> None:
+        await ctx.message.delete()
+
         if ctx.author.id != USER_CREATOR:
-            await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&sendverify", "권한 없는 사용자가 명령어 사용 시도")
             return
 
         channel = self.bot.get_channel(VERIFY_CHANNEL)
         if channel is None:
-            await ctx.send("인증 채널을 찾을 수 없습니다. VERIFY_CHANNEL을 확인하세요.", delete_after=5)
-            await ctx.message.delete()
+            await send_log(self.bot, ctx.author, "&sendverify", "인증 채널을 찾을 수 없음")
             return
 
         message = await channel.send(embed=verify_embed(), view=VerifyView(self.bot))
-        await ctx.message.delete()
 
         print(f"[verify] 인증 메시지 ID: {message.id} — config/verify.py의 VERIFY_MESSAGE_ID에 입력한 뒤 재시작하세요.")
         await send_system_log(

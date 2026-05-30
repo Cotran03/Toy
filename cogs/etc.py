@@ -102,8 +102,9 @@ class Etc(commands.Cog):
             await send_log(self.bot, ctx.author, "&clear", "권한 없는 사용자가 명령어 사용 시도")
             return
 
+        await ctx.message.delete()
+
         if amount is None or amount < 1 or amount > CLEAR_LIMIT:
-            await ctx.message.delete()
             await send_log(
                 self.bot,
                 ctx.author,
@@ -112,7 +113,6 @@ class Etc(commands.Cog):
             )
             return
 
-        await ctx.message.delete()
         deleted = await ctx.channel.purge(limit=amount)
         await send_log(self.bot, ctx.author, "&clear", f"#{ctx.channel.name}에서 {len(deleted)}개 메시지 삭제")
 
@@ -145,21 +145,13 @@ class Etc(commands.Cog):
             await send_log(self.bot, ctx.author, "&info", "권한 없는 사용자")
             return
 
+        await ctx.message.delete()
+
         member = await self._resolve_member(ctx, target)
         if member is None:
-            await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&info", "사용법: &info 유저ID")
             return
 
-        channel = self._bot_command_channel()
-        if channel is None:
-            await ctx.message.delete()
-            await send_log(self.bot, ctx.author, "&info", "BOT_COMMAND_CHANNEL not found")
-            return
-
-        info_data = self._build_info_data(member, advanced=True)
-        await channel.send(embed=info_embed(member, info_data))
-        await ctx.message.delete()
         await send_log(self.bot, ctx.author, "&info", f"대상: {member}")
 
 

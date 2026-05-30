@@ -6,7 +6,7 @@ def info_embed(member: discord.Member, info: dict) -> discord.Embed:
     embed.set_thumbnail(url=member.display_avatar.url)
 
     embed.add_field(name="닉네임", value=member.display_name, inline=True)
-    embed.add_field(name="디스코드 태그", value=str(member), inline=True)
+    embed.add_field(name="사용자명", value=member.name, inline=True)
     embed.add_field(name="서버 가입일", value=info["joined_text"], inline=False)
     embed.add_field(name="가입 후 시간", value=info["elapsed_text"], inline=False)
     embed.add_field(name="보유 INS", value=f"{info['balance']:,}", inline=True)

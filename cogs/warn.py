@@ -105,13 +105,13 @@ class Warn(commands.Cog):
             await self._deny_without_permission(ctx, "&warn")
             return
 
+        await ctx.message.delete()
+
         if member is None or count is None or reason is None:
-            await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&warn", "인자 누락 — 사용법: &warn @멤버 [횟수] [사유]")
             return
 
         if count < 1:
-            await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&warn", "잘못된 횟수 입력 (1 이상이어야 함)")
             return
 
@@ -120,7 +120,6 @@ class Warn(commands.Cog):
         current = get_warning_count(member.id)
         actual_add = min(count, WARN_MAX - current)
         if actual_add < 1:
-            await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&warn", f"'{member}' 이미 최대 경고 횟수({WARN_MAX}회) 도달")
             return
 
@@ -140,7 +139,6 @@ class Warn(commands.Cog):
         if notice_channel:
             await notice_channel.send(embed=warn_notice_embed(member, actual_add, total, reason, punishment, ctx.author))
 
-        await ctx.message.delete()
         await send_log(
             self.bot,
             ctx.author,
@@ -168,8 +166,9 @@ class Warn(commands.Cog):
             await self._deny_without_permission(ctx, "&warnoff")
             return
 
+        await ctx.message.delete()
+
         if user is None:
-            await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&warnoff", "인자 누락 — 사용법: &warnoff @멤버 or 유저ID")
             return
 
@@ -177,7 +176,6 @@ class Warn(commands.Cog):
 
         current = get_warning_count(user.id)
         if current == 0:
-            await ctx.message.delete()
             await send_log(self.bot, ctx.author, "&warnoff", f"'{user}' 유효한 경고 없음")
             return
 
@@ -202,7 +200,6 @@ class Warn(commands.Cog):
         if notice_channel:
             await notice_channel.send(embed=warnoff_notice_embed(user, total, ctx.author))
 
-        await ctx.message.delete()
         await send_log(self.bot, ctx.author, "&warnoff", f"'{user}' ({user.id}) 경고 1회 차감 / 누적 {total}회")
 
     @warnoff.error

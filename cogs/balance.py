@@ -366,8 +366,8 @@ class Balance(commands.Cog):
         if not await self._ensure_balancer(ctx, "&addINS"):
             return
 
+        await ctx.message.delete()
         add_user_balance(member.id, amount)
-        await ctx.send(f"{member.mention}님에게 {amount} INS를 추가했습니다.")
         await self._send_economy_notice(ctx.author, member, "추가", f"+{amount:,} INS", reason)
         await send_log(self.bot, ctx.author, "&addINS", f"대상: {member} / {amount} INS / 사유: {reason}")
 
@@ -383,8 +383,8 @@ class Balance(commands.Cog):
         if not await self._ensure_balancer(ctx, "&delINS"):
             return
 
+        await ctx.message.delete()
         deduct_user_balance(member.id, amount)
-        await ctx.send(f"{member.mention}님의 INS를 {amount}만큼 차감했습니다.")
         await self._send_economy_notice(ctx.author, member, "차감", f"-{amount:,} INS", reason)
         await send_log(self.bot, ctx.author, "&delINS", f"대상: {member} / {amount} INS / 사유: {reason}")
 
@@ -399,8 +399,8 @@ class Balance(commands.Cog):
         if not await self._ensure_balancer(ctx, "&resetINS"):
             return
 
+        await ctx.message.delete()
         reset_user_balance(member.id)
-        await ctx.send(f"{member.mention}님의 INS를 0으로 설정했습니다.")
         await self._send_economy_notice(ctx.author, member, "초기화", "전체 INS 초기화", reason)
         await send_log(self.bot, ctx.author, "&resetINS", f"대상: {member} / 초기화 / 사유: {reason}")
 

@@ -3,6 +3,10 @@ from datetime import datetime, timezone
 import discord
 
 
+def _display_name(user: discord.User | discord.Member) -> str:
+    return getattr(user, "display_name", user.name)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -21,12 +25,12 @@ def warn_notice_embed(
         timestamp=_now(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="대상", value=str(member), inline=False)
+    embed.add_field(name="대상", value=member.display_name, inline=False)
     embed.add_field(name="이번 경고 수", value=f"`{added}회`", inline=True)
     embed.add_field(name="누적 경고 수", value=f"`{total}회`", inline=True)
     embed.add_field(name="사유", value=reason, inline=False)
     embed.add_field(name="제재", value=f"`{punishment}`", inline=True)
-    embed.add_field(name="처리자", value=str(moderator), inline=True)
+    embed.add_field(name="처리자", value=moderator.display_name, inline=True)
     return embed
 
 
@@ -41,15 +45,15 @@ def warnoff_notice_embed(
         timestamp=_now(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="대상", value=str(member), inline=False)
+    embed.add_field(name="대상", value=_display_name(member), inline=False)
     embed.add_field(name="차감 수", value="`1회`", inline=True)
     embed.add_field(name="누적 경고 수", value=f"`{total}회`", inline=True)
-    embed.add_field(name="처리자", value=str(moderator), inline=True)
+    embed.add_field(name="처리자", value=moderator.display_name, inline=True)
     return embed
 
 
 def warn_expire_notice_embed(user: discord.User | None, count: int, total: int) -> discord.Embed:
-    user_value = str(user) if user else "알 수 없음"
+    user_value = _display_name(user) if user else "알 수 없음"
     embed = discord.Embed(
         title="경고 만료",
         description="30일 경과로 자동 차감되었습니다.",

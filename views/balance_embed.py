@@ -3,6 +3,10 @@ import discord
 from config import STORE_ITEMS
 
 
+def _display_name(user: discord.User | discord.Member) -> str:
+    return getattr(user, "display_name", user.name)
+
+
 def _get_role_label(guild: discord.Guild, role_id: int, fallback: str) -> str:
     role = guild.get_role(role_id)
     return role.name if role else fallback
@@ -107,8 +111,8 @@ def economy_admin_notice_embed(
         title="INS 관리자 처리",
         color=0x5865F2,
     )
-    embed.add_field(name="처리자", value=f"{moderator.mention} (`{moderator.id}`)", inline=False)
-    embed.add_field(name="대상", value=f"{member.mention} (`{member.id}`)", inline=False)
+    embed.add_field(name="처리자", value=_display_name(moderator), inline=False)
+    embed.add_field(name="대상", value=member.display_name, inline=False)
     embed.add_field(name="처리 내용", value=action, inline=True)
     embed.add_field(name="변동 INS", value=amount_text, inline=True)
     embed.add_field(name="사유", value=reason, inline=False)
