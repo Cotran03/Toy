@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import GUILD_ID, TOKEN, ADMIN_PREFIX, USER_CREATOR
+from config.bot2 import SECONDARY_GUILD_ID
 from db.backups import database_backup_loop, list_backups, restore_database
 from db.database import init_db
 from utils.send_log import send_log
@@ -51,6 +52,10 @@ class MyBot(commands.Bot):
         self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
 
+        if SECONDARY_GUILD_ID > 0:
+            secondary_guild = discord.Object(id=SECONDARY_GUILD_ID)
+            await self.tree.sync(guild=secondary_guild)
+
 
 bot = MyBot(
     command_prefix=ADMIN_PREFIX,
@@ -87,8 +92,17 @@ async def sync(ctx: commands.Context) -> None:
     guild = discord.Object(id=GUILD_ID)
     bot.tree.copy_global_to(guild=guild)
     synced = await bot.tree.sync(guild=guild)
+    secondary_synced = []
+    if SECONDARY_GUILD_ID > 0:
+        secondary_guild = discord.Object(id=SECONDARY_GUILD_ID)
+        secondary_synced = await bot.tree.sync(guild=secondary_guild)
 
-    await send_log(bot, ctx.author, "&sync", f"슬래시 커맨드 {len(synced)}개 동기화 완료")
+    await send_log(
+        bot,
+        ctx.author,
+        "&sync",
+        f"슬래시 커맨드 {len(synced)}개 동기화 완료 / secondary: {len(secondary_synced)}개",
+    )
 
 
 @bot.command(name="reload")

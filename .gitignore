@@ -2,7 +2,9 @@ __pycache__/
 *.pyc
 .env
 bot.db
+db/secondary_warn.db
 *.db-journal
 db/backups/
 bot.py
+bot2.py
 txt/
