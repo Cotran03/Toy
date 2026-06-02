@@ -48,8 +48,10 @@ class MyBot(commands.Bot):
         self.backup_task = self.loop.create_task(database_backup_loop())
         await load_extensions(self)
 
+        self.tree.clear_commands(guild=None)
+        await self.tree.sync()
+
         guild = discord.Object(id=GUILD_ID)
-        self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
 
         if SECONDARY_GUILD_ID > 0:
@@ -66,7 +68,11 @@ bot = MyBot(
 
 
 @bot.check
-async def block_commands_during_database_restore(ctx: commands.Context) -> bool:
+async def prefix_command_gate(ctx: commands.Context) -> bool:
+    if ctx.guild is None or ctx.guild.id != GUILD_ID:
+        setattr(ctx, "silent_guild_block", True)
+        return False
+
     if bot.database_restore_in_progress:
         await ctx.message.delete()
         await send_log(bot, ctx.author, ctx.command.qualified_name if ctx.command else "unknown", RESTORE_IN_PROGRESS_MESSAGE)
@@ -90,7 +96,8 @@ async def sync(ctx: commands.Context) -> None:
         return
 
     guild = discord.Object(id=GUILD_ID)
-    bot.tree.copy_global_to(guild=guild)
+    bot.tree.clear_commands(guild=None)
+    global_synced = await bot.tree.sync()
     synced = await bot.tree.sync(guild=guild)
     secondary_synced = []
     if SECONDARY_GUILD_ID > 0:
@@ -191,6 +198,9 @@ async def restoredb(ctx: commands.Context, backup_name: str | None = None) -> No
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error: Exception) -> None:
+    if isinstance(error, commands.CheckFailure):
+        return
+
     try:
         await ctx.message.delete()
     except (discord.Forbidden, discord.NotFound):
