@@ -32,13 +32,13 @@ def secondary_warn_notice_embed(
             f"유저: {member.mention}\n\n"
             f"사유: {reason}\n\n"
             f"지급 경고 갯수: {added}개\n\n"
-            f"처벌 방식: {punishment}"
+            f"처벌 방식: {punishment}\n\n"
+            f"-# 문의는 {_inquiry_mention(inquiry_channel_id)}으로.."
         ),
         color=0xFEE75C,
         timestamp=_now(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.set_footer(text=f"문의는 {_inquiry_mention(inquiry_channel_id)}으로..")
     return embed
 
 
@@ -51,7 +51,7 @@ def secondary_warnoff_notice_embed(
 ) -> discord.Embed:
     embed = discord.Embed(
         title="경고 취소",
-        description="두 번째 서버 경고 취소 안내입니다.",
+        description="경고가 취소되었습니다.",
         color=0x57F287,
         timestamp=_now(),
     )
