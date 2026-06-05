@@ -92,8 +92,33 @@ class Etc(commands.Cog):
         except commands.BadArgument:
             return None
 
-    def _bot_command_channel(self) -> discord.abc.Messageable | None:
-        return self.bot.get_channel(BOT_COMMAND_CHANNEL)
+    async def _bot_command_channel(self) -> discord.abc.Messageable | None:
+        channel = self.bot.get_channel(BOT_COMMAND_CHANNEL)
+        if channel is not None:
+            return channel
+
+        try:
+            return await self.bot.fetch_channel(BOT_COMMAND_CHANNEL)
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException) as exc:
+            print(f"[admin_info] 봇 명령어 채널 조회 실패 ({BOT_COMMAND_CHANNEL}): {exc}")
+            return None
+
+    async def _send_admin_info(self, member: discord.Member) -> bool:
+        channel = await self._bot_command_channel()
+        if channel is None:
+            return False
+
+        if not hasattr(channel, "send"):
+            print(f"[admin_info] 봇 명령어 채널이 메시지를 보낼 수 없는 타입입니다: {type(channel).__name__}")
+            return False
+
+        try:
+            await channel.send(embed=info_embed(member, self._build_info_data(member, advanced=True)))
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            print(f"[admin_info] 사용자 정보 전송 실패 ({BOT_COMMAND_CHANNEL}): {exc}")
+            return False
+
+        return True
 
     @commands.command(name="clear")
     async def clear(self, ctx: commands.Context, amount: int | None = None) -> None:
@@ -150,6 +175,11 @@ class Etc(commands.Cog):
         member = await self._resolve_member(ctx, target)
         if member is None:
             await send_log(self.bot, ctx.author, "&info", "사용법: &info 유저ID")
+            return
+
+        sent = await self._send_admin_info(member)
+        if not sent:
+            await send_log(self.bot, ctx.author, "&info", f"전송 실패 / 대상: {member}")
             return
 
         await send_log(self.bot, ctx.author, "&info", f"대상: {member}")
