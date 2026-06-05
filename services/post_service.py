@@ -4,6 +4,7 @@ import discord
 # Import Config
 from config import (
     END_REWARD_AMOUNT,
+    GUILD_ID,
     POST_ACTIVE_LIMIT,
     POST_ACTIVE_LIMIT_MULTITASKER,
     POST_COUNT_EXCLUDED_FORUM_CHANNELS,
@@ -36,6 +37,7 @@ def is_forum_post_channel(channel) -> bool:
     return (
         isinstance(channel, discord.Thread)
         and isinstance(channel.parent, discord.ForumChannel)
+        and channel.guild.id == GUILD_ID
         and channel.parent.id not in POST_COUNT_EXCLUDED_FORUM_CHANNELS
     )
 

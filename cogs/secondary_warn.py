@@ -51,6 +51,13 @@ class SecondaryWarn(commands.Cog):
             return True
         return has_any_role(member, WARN_PERMISSION_ROLES)
 
+    async def _deny_wrong_guild(self, interaction: discord.Interaction) -> None:
+        if interaction.response.is_done():
+            await interaction.followup.send("이 명령어는 이 서버에서 사용할 수 없습니다.", ephemeral=True)
+            return
+
+        await interaction.response.send_message("이 명령어는 이 서버에서 사용할 수 없습니다.", ephemeral=True)
+
     def _warning_role_ids(self) -> set[int]:
         return {role_id for role_id in WARN_ROLE_BY_COUNT.values() if role_id > 0}
 
@@ -268,6 +275,10 @@ class SecondaryWarn(commands.Cog):
         count: app_commands.Range[int, 1, WARN_MAX],
         reason: str,
     ) -> None:
+        if interaction.guild_id != SECONDARY_GUILD_ID:
+            await self._deny_wrong_guild(interaction)
+            return
+
         if not isinstance(interaction.user, discord.Member) or not self._has_permission(interaction.user):
             await self._deny(interaction, "경고")
             return
@@ -331,6 +342,10 @@ class SecondaryWarn(commands.Cog):
     @app_commands.guilds(SECONDARY_GUILD)
     @app_commands.describe(user="경고를 취소할 사용자")
     async def warnoff(self, interaction: discord.Interaction, user: discord.User) -> None:
+        if interaction.guild_id != SECONDARY_GUILD_ID:
+            await self._deny_wrong_guild(interaction)
+            return
+
         if not isinstance(interaction.user, discord.Member) or not self._has_permission(interaction.user):
             await self._deny(interaction, "경고취소")
             return

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from config import ROLE_SCHOLAR, ROLE_UNVERIFIED, USER_CREATOR, VERIFY_CHANNEL, VERIFY_MESSAGE_ID
+from config import GUILD_ID, ROLE_SCHOLAR, ROLE_UNVERIFIED, USER_CREATOR, VERIFY_CHANNEL, VERIFY_MESSAGE_ID
 from utils.send_log import send_log, send_system_log
 from views.verify_embed import verify_embed
 
@@ -24,6 +24,10 @@ class VerifyView(discord.ui.View):
         guild = interaction.guild
         if guild is None:
             await interaction.response.send_message("서버 정보를 가져오지 못했습니다.", ephemeral=True)
+            return
+
+        if guild.id != GUILD_ID:
+            await interaction.response.send_message("이 인증 버튼은 이 서버에서 사용할 수 없습니다.", ephemeral=True)
             return
 
         unverified_role = guild.get_role(ROLE_UNVERIFIED)
@@ -117,6 +121,9 @@ class Verify(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
+        if member.guild.id != GUILD_ID:
+            return
+
         unverified_role = member.guild.get_role(ROLE_UNVERIFIED)
         if unverified_role is None:
             return
