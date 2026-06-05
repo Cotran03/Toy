@@ -8,7 +8,7 @@ from config import GUILD_ID, TOKEN, ADMIN_PREFIX, USER_CREATOR
 from config.bot2 import SECONDARY_GUILD_ID
 from db.backups import database_backup_loop, list_backups, restore_database
 from db.database import init_db
-from utils.send_log import send_log
+from utils.send_log import send_command_result, send_log
 
 
 COG_DIR = "cogs"
@@ -75,7 +75,9 @@ async def prefix_command_gate(ctx: commands.Context) -> bool:
 
     if bot.database_restore_in_progress:
         await ctx.message.delete()
-        await send_log(bot, ctx.author, ctx.command.qualified_name if ctx.command else "unknown", RESTORE_IN_PROGRESS_MESSAGE)
+        command_name = f"{ADMIN_PREFIX}{ctx.command.qualified_name}" if ctx.command else "unknown"
+        await send_command_result(bot, f"{command_name} 결과", RESTORE_IN_PROGRESS_MESSAGE)
+        await send_log(bot, ctx.author, command_name, "DB 복구 중 명령어 사용 시도")
         return False
 
     return True
@@ -104,12 +106,13 @@ async def sync(ctx: commands.Context) -> None:
         secondary_guild = discord.Object(id=SECONDARY_GUILD_ID)
         secondary_synced = await bot.tree.sync(guild=secondary_guild)
 
-    await send_log(
-        bot,
-        ctx.author,
-        "&sync",
-        f"슬래시 커맨드 {len(synced)}개 동기화 완료 / secondary: {len(secondary_synced)}개",
+    result = (
+        f"첫 번째 서버 슬래시 커맨드: {len(synced)}개\n"
+        f"두 번째 서버 슬래시 커맨드: {len(secondary_synced)}개\n"
+        f"전역 슬래시 커맨드 정리: {len(global_synced)}개"
     )
+    await send_command_result(bot, "&sync 결과", result)
+    await send_log(bot, ctx.author, "&sync", "슬래시 커맨드 동기화 실행")
 
 
 @bot.command(name="reload")
@@ -133,7 +136,8 @@ async def reload(ctx: commands.Context) -> None:
         except Exception as exc:
             results.append(f"❌ {extension} — {exc}")
 
-    await send_log(bot, ctx.author, "&reload", "\n".join(results))
+    await send_command_result(bot, "&reload 결과", "\n".join(results))
+    await send_log(bot, ctx.author, "&reload", "Cog reload 실행")
 
 
 @bot.command(name="backups")
@@ -147,7 +151,8 @@ async def backups(ctx: commands.Context) -> None:
 
     backup_paths = await bot.loop.run_in_executor(None, list_backups)
     if not backup_paths:
-        await send_log(bot, ctx.author, "&backups", "DB 백업본 없음")
+        await send_command_result(bot, "&backups 결과", "DB 백업본 없음")
+        await send_log(bot, ctx.author, "&backups", "DB 백업 목록 조회")
         return
 
     lines = ["사용 가능한 DB 백업본:"]
@@ -157,7 +162,8 @@ async def backups(ctx: commands.Context) -> None:
     if len(backup_paths) > 10:
         lines.append(f"...외 {len(backup_paths) - 10}개")
 
-    await send_log(bot, ctx.author, "&backups", "\n".join(lines))
+    await send_command_result(bot, "&backups 결과", "\n".join(lines))
+    await send_log(bot, ctx.author, "&backups", f"DB 백업 목록 조회 / {len(backup_paths)}개")
 
 
 @bot.command(name="restoredb")
@@ -170,7 +176,8 @@ async def restoredb(ctx: commands.Context, backup_name: str | None = None) -> No
         return
 
     if backup_name is None:
-        await send_log(bot, ctx.author, "&restoredb", "사용법 오류: &restoredb latest 또는 &restoredb 백업파일명.db")
+        await send_command_result(bot, "&restoredb 결과", "사용법: &restoredb latest 또는 &restoredb 백업파일명.db")
+        await send_log(bot, ctx.author, "&restoredb", "사용법 오류")
         return
 
     bot.database_restore_in_progress = True
@@ -182,18 +189,16 @@ async def restoredb(ctx: commands.Context, backup_name: str | None = None) -> No
                 backup_name,
             )
         except Exception as exc:
-            await send_log(bot, ctx.author, "&restoredb", f"DB 복구 실패: {exc}")
+            await send_command_result(bot, "&restoredb 결과", f"DB 복구 실패: {exc}")
+            await send_log(bot, ctx.author, "&restoredb", "DB 복구 실패")
             return
     finally:
         bot.database_restore_in_progress = False
 
     safety_text = safety_backup.name if safety_backup else "없음"
-    await send_log(
-        bot,
-        ctx.author,
-        "&restoredb",
-        f"복구본: {restored_from.name} / 복구 전 안전 백업: {safety_text}",
-    )
+    result = f"복구본: {restored_from.name}\n복구 전 안전 백업: {safety_text}"
+    await send_command_result(bot, "&restoredb 결과", result)
+    await send_log(bot, ctx.author, "&restoredb", f"DB 복구 실행 / {restored_from.name}")
 
 
 @bot.event
@@ -207,7 +212,8 @@ async def on_command_error(ctx: commands.Context, error: Exception) -> None:
         pass
 
     command_name = f"{ADMIN_PREFIX}{ctx.command.qualified_name}" if ctx.command else "unknown"
-    await send_log(bot, ctx.author, command_name, f"명령어 오류: {error}")
+    await send_command_result(bot, f"{command_name} 결과", f"명령어 오류: {error}")
+    await send_log(bot, ctx.author, command_name, f"명령어 오류: {type(error).__name__}")
 
 
 bot.run(TOKEN)

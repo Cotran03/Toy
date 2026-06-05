@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 
 from config import GUILD_ID, ROLE_SCHOLAR, ROLE_UNVERIFIED, USER_CREATOR, VERIFY_CHANNEL, VERIFY_MESSAGE_ID
-from utils.send_log import send_log, send_system_log
+from utils.send_log import send_command_result, send_log, send_system_log
 from views.verify_embed import verify_embed
 
 
@@ -107,12 +107,19 @@ class Verify(commands.Cog):
 
         channel = self.bot.get_channel(VERIFY_CHANNEL)
         if channel is None:
+            await send_command_result(self.bot, "&sendverify 결과", "인증 채널을 찾을 수 없음")
             await send_log(self.bot, ctx.author, "&sendverify", "인증 채널을 찾을 수 없음")
             return
 
         message = await channel.send(embed=verify_embed(), view=VerifyView(self.bot))
 
         print(f"[verify] 인증 메시지 ID: {message.id} — config/verify.py의 VERIFY_MESSAGE_ID에 입력한 뒤 재시작하세요.")
+        await send_command_result(
+            self.bot,
+            "&sendverify 결과",
+            f"메시지 ID: `{message.id}`\nconfig/verify.py의 `VERIFY_MESSAGE_ID`에 입력한 뒤 봇을 재시작하세요.",
+        )
+        await send_log(self.bot, ctx.author, "&sendverify", f"인증 메시지 전송 / 메시지 ID: {message.id}")
         await send_system_log(
             self.bot,
             "인증 메시지 전송",

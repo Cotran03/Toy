@@ -17,7 +17,7 @@ from db.database import (
     get_total_promote_count,
     get_warning_count,
 )
-from utils.send_log import send_log
+from utils.send_log import send_command_result, send_log
 from utils.check_permission import has_any_role
 from views.etc_embed import info_embed
 
@@ -130,6 +130,11 @@ class Etc(commands.Cog):
         await ctx.message.delete()
 
         if amount is None or amount < 1 or amount > CLEAR_LIMIT:
+            await send_command_result(
+                self.bot,
+                "&clear 결과",
+                f"사용법: &clear [횟수]\n횟수는 1부터 {CLEAR_LIMIT}까지 입력할 수 있습니다.",
+            )
             await send_log(
                 self.bot,
                 ctx.author,
@@ -139,6 +144,7 @@ class Etc(commands.Cog):
             return
 
         deleted = await ctx.channel.purge(limit=amount)
+        await send_command_result(self.bot, "&clear 결과", f"#{ctx.channel.name}에서 {len(deleted)}개 메시지 삭제")
         await send_log(self.bot, ctx.author, "&clear", f"#{ctx.channel.name}에서 {len(deleted)}개 메시지 삭제")
 
     @app_commands.command(name="ping", description="봇의 응답 속도를 확인합니다.")
@@ -174,11 +180,13 @@ class Etc(commands.Cog):
 
         member = await self._resolve_member(ctx, target)
         if member is None:
+            await send_command_result(self.bot, "&info 결과", "사용법: &info 유저ID")
             await send_log(self.bot, ctx.author, "&info", "사용법: &info 유저ID")
             return
 
         sent = await self._send_admin_info(member)
         if not sent:
+            await send_command_result(self.bot, "&info 결과", f"전송 실패 / 대상: {member}")
             await send_log(self.bot, ctx.author, "&info", f"전송 실패 / 대상: {member}")
             return
 
