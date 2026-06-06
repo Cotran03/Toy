@@ -2,7 +2,7 @@
 import discord
 
 # Import Config
-from config import DAILY_REWARD_AMOUNT, ROLE_PROMOTER, ROLE_PROMOTER_ADVANCED, STORE_ITEMS
+from config import ROLE_PROMOTER, ROLE_PROMOTER_ADVANCED
 
 # Import DB
 from db.database import (
@@ -11,7 +11,9 @@ from db.database import (
     deduct_balance,
     ensure_user,
     get_balance,
+    get_economy_setting,
     get_last_reward_date,
+    get_store_items,
     set_balance,
 )
 
@@ -21,12 +23,20 @@ def get_user_balance(user_id: int) -> int:
     return get_balance(user_id)
 
 
+def get_daily_reward_amount() -> int:
+    return get_economy_setting("daily_reward")
+
+
+def get_current_store_items() -> dict[int, dict]:
+    return get_store_items()
+
+
 def claim_daily_reward(user_id: int) -> tuple[bool, int, int, str | None]:
     """Claim the daily reward.
 
     Returns (claimed, current_balance, reward_streak, last_reward_date).
     """
-    claimed, current_balance, reward_streak = claim_reward(user_id, DAILY_REWARD_AMOUNT)
+    claimed, current_balance, reward_streak = claim_reward(user_id, get_daily_reward_amount())
     return claimed, current_balance, reward_streak, get_last_reward_date(user_id)
 
 
@@ -55,7 +65,7 @@ def can_purchase_store_role(
     Returns (can_purchase, reason, role, item, current_balance).
     """
     role = guild.get_role(role_id)
-    item = STORE_ITEMS.get(role_id)
+    item = get_current_store_items().get(role_id)
     balance = get_user_balance(member.id)
 
     if role is None or item is None:

@@ -3,14 +3,12 @@ import discord
 
 # Import Config
 from config import (
-    END_REWARD_AMOUNT,
     GUILD_ID,
     POST_ACTIVE_LIMIT,
     POST_ACTIVE_LIMIT_MULTITASKER,
     POST_COUNT_EXCLUDED_FORUM_CHANNELS,
     POST_END_ROLES,
     PROMOTE_ADVANCED_DAILY_LIMIT,
-    PROMOTE_COST,
     PROMOTE_DAILY_LIMIT,
     ROLE_MULTITASKER,
     ROLE_PROMOTER,
@@ -26,11 +24,20 @@ from db.database import (
     ensure_user,
     get_active_post_count,
     get_balance,
+    get_economy_setting,
     get_promote_info,
     increment_end_count,
     increment_post_count,
     increment_promote,
 )
+
+
+def get_end_reward_amount() -> int:
+    return get_economy_setting("end_reward")
+
+
+def get_promote_cost() -> int:
+    return get_economy_setting("promote_cost")
 
 
 def is_forum_post_channel(channel) -> bool:
@@ -64,7 +71,7 @@ def build_ended_tags(channel: discord.Thread) -> tuple[list[discord.ForumTag] | 
 
 def record_post_end(user_id: int) -> tuple[int, int]:
     end_count = increment_end_count(user_id)
-    balance = add_balance(user_id, END_REWARD_AMOUNT)
+    balance = add_balance(user_id, get_end_reward_amount())
     return end_count, balance
 
 
@@ -108,12 +115,12 @@ def has_promote_remaining(member: discord.Member) -> bool:
     return get_promote_usage(member.id) < get_promote_limit(member)
 
 
-def has_promote_cost(user_id: int) -> bool:
+def has_promote_cost(user_id: int, cost: int | None = None) -> bool:
     ensure_user(user_id)
-    return get_balance(user_id) >= PROMOTE_COST
+    return get_balance(user_id) >= (get_promote_cost() if cost is None else cost)
 
 
-def record_promote(user_id: int) -> tuple[int, int]:
+def record_promote(user_id: int, cost: int | None = None) -> tuple[int, int]:
     new_used = increment_promote(user_id)
-    new_balance = deduct_balance(user_id, PROMOTE_COST)
+    new_balance = deduct_balance(user_id, get_promote_cost() if cost is None else cost)
     return new_used, new_balance

@@ -4,13 +4,15 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import END_REWARD_AMOUNT, GUILD_ID, PROMOTE_CHANNEL, PROMOTE_COST
+from config import GUILD_ID, PROMOTE_CHANNEL
 from services.post_service import (
     build_ended_tags,
     can_end_post,
     can_promote,
     get_active_post_limit,
     get_active_post_usage,
+    get_end_reward_amount,
+    get_promote_cost,
     get_promote_limit,
     has_promote_cost,
     has_promote_remaining,
@@ -149,12 +151,13 @@ class Post(commands.Cog):
         await channel.edit(applied_tags=new_tags, locked=True, archived=True)
 
         post_owner_id = channel.owner_id or member.id
+        end_reward_amount = get_end_reward_amount()
         _, balance = record_post_end(post_owner_id)
         await send_log(
             self.bot,
             member,
             "/end",
-            f"포스트 '{channel.name}' 종료 / 소유자 {post_owner_id} / 보상 {END_REWARD_AMOUNT} INS / 잔액 {balance} INS",
+            f"포스트 '{channel.name}' 종료 / 소유자 {post_owner_id} / 보상 {end_reward_amount} INS / 잔액 {balance} INS",
         )
 
     @app_commands.command(name="promote", description="현재 포스트를 홍보 채널에 홍보합니다.")
@@ -187,15 +190,16 @@ class Post(commands.Cog):
             await interaction.response.send_message(embed=promote_limit_embed(promote_limit), ephemeral=True)
             return
 
-        if not has_promote_cost(member.id):
-            await interaction.response.send_message(embed=promote_cost_embed(PROMOTE_COST), ephemeral=True)
+        promote_cost = get_promote_cost()
+        if not has_promote_cost(member.id, promote_cost):
+            await interaction.response.send_message(embed=promote_cost_embed(promote_cost), ephemeral=True)
             return
 
         promote_channel = self.bot.get_channel(PROMOTE_CHANNEL)
         if promote_channel:
             await promote_channel.send(embed=promote_channel_embed(member, channel))
 
-        new_used, balance = record_promote(member.id)
+        new_used, balance = record_promote(member.id, promote_cost)
 
         await interaction.response.defer(ephemeral=False)
         followup_msg = await interaction.followup.send(
@@ -208,7 +212,7 @@ class Post(commands.Cog):
             self.bot,
             member,
             "/promote",
-            f"포스트 '{channel.name}' 홍보 / {PROMOTE_COST} INS 사용 / 잔액 {balance} INS / 오늘 {new_used}/{promote_limit}회 사용",
+            f"포스트 '{channel.name}' 홍보 / {promote_cost} INS 사용 / 잔액 {balance} INS / 오늘 {new_used}/{promote_limit}회 사용",
         )
 
 

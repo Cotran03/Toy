@@ -58,6 +58,14 @@ def init_db() -> None:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS economy_settings (
+                key        TEXT PRIMARY KEY,
+                value      INTEGER NOT NULL CHECK(value >= 0),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+
         conn.commit()
 
     print("[DB] 초기화 완료")

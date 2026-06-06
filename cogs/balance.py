@@ -2,13 +2,15 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import BALANCER_ROLES, DAILY_REWARD_AMOUNT, ECONOMY_CHANNEL, GUILD_ID, STORE_ITEMS
+from config import BALANCER_ROLES, ECONOMY_CHANNEL, GUILD_ID
 from services.balance_service import (
     add_user_balance,
     can_purchase_store_role,
     claim_daily_reward,
     complete_store_purchase,
     deduct_user_balance,
+    get_current_store_items,
+    get_daily_reward_amount,
     get_user_balance,
     reset_user_balance,
 )
@@ -46,7 +48,7 @@ class StoreView(discord.ui.View):
 
     def _build_role_options(self) -> list[discord.SelectOption]:
         options: list[discord.SelectOption] = []
-        for role_id, item in STORE_ITEMS.items():
+        for role_id, item in get_current_store_items().items():
             role = self.guild.get_role(role_id)
             label = role.name if role else item["label"]
             options.append(
@@ -306,12 +308,13 @@ class Balance(commands.Cog):
     @app_commands.command(name="reward", description="하루에 한 번 INS를 받습니다.")
     @app_commands.guilds(GUILD)
     async def reward(self, interaction: discord.Interaction) -> None:
+        reward_amount = get_daily_reward_amount()
         claimed, balance, reward_streak, last_reward_date = claim_daily_reward(interaction.user.id)
         if not claimed:
             await interaction.response.send_message(
                 embed=reward_embed(
                     claimed=False,
-                    amount=DAILY_REWARD_AMOUNT,
+                    amount=reward_amount,
                     balance=balance,
                     reward_streak=reward_streak,
                     last_reward_date=last_reward_date,
@@ -329,7 +332,7 @@ class Balance(commands.Cog):
         await interaction.response.send_message(
             embed=reward_embed(
                 claimed=True,
-                amount=DAILY_REWARD_AMOUNT,
+                amount=reward_amount,
                 balance=balance,
                 reward_streak=reward_streak,
                 last_reward_date=last_reward_date,
@@ -340,7 +343,7 @@ class Balance(commands.Cog):
             self.bot,
             interaction.user,
             "/reward",
-            f"일일 보상 수령 / 지급: {DAILY_REWARD_AMOUNT} INS / 잔액: {balance} INS / 연속 출석: {reward_streak}일",
+            f"일일 보상 수령 / 지급: {reward_amount} INS / 잔액: {balance} INS / 연속 출석: {reward_streak}일",
         )
 
     @app_commands.command(name="store", description="INS로 역할을 구매합니다.")

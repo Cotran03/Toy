@@ -1,6 +1,6 @@
 import discord
 
-from config import STORE_ITEMS
+from db.database import get_store_items
 
 
 def _display_name(user: discord.User | discord.Member) -> str:
@@ -23,7 +23,7 @@ def store_embed(
     )
     embed.add_field(name="현재 잔액", value=f"{balance} INS", inline=False)
 
-    for role_id, item in STORE_ITEMS.items():
+    for role_id, item in get_store_items().items():
         label = _get_role_label(guild, role_id, item["label"])
         embed.add_field(
             name=f"{label} · {item['price']} INS",

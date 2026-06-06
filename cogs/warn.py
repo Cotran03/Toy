@@ -3,12 +3,13 @@ from datetime import timedelta
 import discord
 from discord.ext import commands, tasks
 
-from config import WARN_MAX, WARN_NOTICE_CHANNEL, WARN_PENALTY, WARN_ROLES, WARN_RULES
+from config import WARN_MAX, WARN_NOTICE_CHANNEL, WARN_ROLES, WARN_RULES
 from db.database import (
     add_warning,
     deduct_balance,
     ensure_user,
     expire_old_warnings,
+    get_economy_setting,
     get_warning_count,
     is_banned,
     remove_warning,
@@ -128,7 +129,8 @@ class Warn(commands.Cog):
 
         total = get_warning_count(member.id)
         punishment = WARN_RULES.get(total, PUNISHMENT_BAN)
-        remaining_balance = deduct_balance(member.id, WARN_PENALTY)
+        warn_penalty = get_economy_setting("warn_penalty")
+        remaining_balance = deduct_balance(member.id, warn_penalty)
 
         if punishment == PUNISHMENT_BAN:
             set_banned(member.id, True)
@@ -145,7 +147,7 @@ class Warn(commands.Cog):
             "&warn",
             (
                 f"'{member}' ({member.id}) 경고 {actual_add}회 부여 / 누적 {total}회 / "
-                f"사유: {reason} / 제재: {punishment} / 재화 -{WARN_PENALTY} (잔액: {remaining_balance})"
+                f"사유: {reason} / 제재: {punishment} / 재화 -{warn_penalty} (잔액: {remaining_balance})"
             ),
         )
 
