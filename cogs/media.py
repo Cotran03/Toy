@@ -9,7 +9,7 @@ from config import BOT_COMMAND_CHANNEL, MEDIA_CHANNEL
 
 MEDIA_NOTICE = "미디어방에서 채팅은 삼가해주시길 바랍니다."
 BOT_COMMAND_NOTICE = """
-# 관리자 명령어
+```# 관리자 명령어
 &sync : 슬래시 명령어를 현재 길드에 동기화합니다.
 
 &reload : 모든 Cog를 다시 불러와 봇 기능을 갱신합니다.
@@ -40,16 +40,16 @@ BOT_COMMAND_NOTICE = """
 
 &economy set [항목] [값]: 보상·차감·비용 설정값을 변경합니다.
 > 일일 보상: daily_reward, daily, 일일보상
-> 포스트 종료 보상:    end_reward, end, 종료보상
-> 경고 재화 차감:    warn_penalty, warn, 경고차감
-> 홍보 비용:    promote_cost, promote, 홍보비용
+> 포스트 종료 보상: end_reward, end, 종료보상
+> 경고 재화 차감: warn_penalty, warn, 경고차감
+> 홍보 비용: promote_cost, promote, 홍보비용
 
 &economy reset [항목]: 경제 설정을 config/economy.py 기본값으로 복원합니다.
 
 &economy store @역할 [가격]: 상점 역할의 가격을 변경합니다.
 
 &economy resetstore @역할: 상점 역할 가격을 config/store.py 기본값으로 복원합니다.
-> 상점에 등록된 역할 이름
+> 상점에 등록된 역할 이름```
 """.strip()
 NOTICE_HISTORY_LIMIT = 100
 MESSAGE_CONTENT_LIMIT = 2000
