@@ -1,10 +1,14 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import discord
 
 
+WARNING_TIMEZONE = ZoneInfo("Asia/Seoul")
+
+
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(WARNING_TIMEZONE)
 
 
 def _display_name(user: discord.User | discord.Member) -> str:
@@ -13,6 +17,11 @@ def _display_name(user: discord.User | discord.Member) -> str:
 
 def _inquiry_mention(channel_id: int) -> str:
     return f"<#{channel_id}>" if channel_id > 0 else "문의사항 채널"
+
+
+def _expiration_text(days: int) -> str:
+    timestamp = int((_now() + timedelta(days=days)).timestamp())
+    return f"<t:{timestamp}:F>\n<t:{timestamp}:R>"
 
 
 def secondary_warn_notice_embed(
@@ -25,6 +34,7 @@ def secondary_warn_notice_embed(
     role: discord.Role | None,
     moderator: discord.Member,
     inquiry_channel_id: int,
+    expire_days: int,
 ) -> discord.Embed:
     embed = discord.Embed(
         title="경고 기록",
@@ -39,6 +49,7 @@ def secondary_warn_notice_embed(
         timestamp=_now(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="경고 차감 예정", value=_expiration_text(expire_days), inline=False)
     return embed
 
 

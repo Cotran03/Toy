@@ -4,10 +4,12 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 SECONDARY_WARN_DB_PATH = os.path.join(os.path.dirname(__file__), "secondary_warn.db")
 SECONDARY_WARN_DB_LOCK = threading.RLock()
+WARNING_TIMEZONE = ZoneInfo("Asia/Seoul")
 
 
 @contextmanager
@@ -25,7 +27,12 @@ def secondary_warn_connection() -> Iterator[sqlite3.Connection]:
 def _cutoff(expire_days: int) -> str | None:
     if expire_days <= 0:
         return None
-    return (datetime.now() - timedelta(days=expire_days)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = datetime.now(WARNING_TIMEZONE) - timedelta(days=expire_days)
+    return cutoff.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _now_text() -> str:
+    return datetime.now(WARNING_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def init_secondary_warn_db() -> None:
@@ -48,7 +55,7 @@ def init_secondary_warn_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 reason TEXT,
-                warned_at TEXT NOT NULL DEFAULT (datetime('now')),
+                warned_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours')),
                 moderator_id INTEGER,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
@@ -117,7 +124,7 @@ def add_secondary_warning(user_id: int, reason: str, moderator_id: int, expire_d
     with secondary_warn_connection() as conn:
         conn.execute(
             "INSERT INTO warnings (user_id, reason, warned_at, moderator_id) VALUES (?, ?, ?, ?)",
-            (user_id, reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), moderator_id),
+            (user_id, reason, _now_text(), moderator_id),
         )
         conn.commit()
     return get_secondary_warning_count(user_id, expire_days)

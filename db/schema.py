@@ -53,10 +53,30 @@ def init_db() -> None:
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id   INTEGER NOT NULL,
                 reason    TEXT,
-                warned_at TEXT NOT NULL DEFAULT (datetime('now')),
+                warned_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours')),
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                name       TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
+            )
+        """)
+
+        warning_timezone_migration = "warnings_warned_at_utc_to_kst"
+        migration_applied = cursor.execute(
+            "SELECT 1 FROM schema_migrations WHERE name = ?",
+            (warning_timezone_migration,),
+        ).fetchone()
+        if migration_applied is None:
+            # Existing first-server warnings were stored by SQLite in UTC.
+            cursor.execute("UPDATE warnings SET warned_at = datetime(warned_at, '+9 hours')")
+            cursor.execute(
+                "INSERT INTO schema_migrations (name) VALUES (?)",
+                (warning_timezone_migration,),
+            )
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS economy_settings (

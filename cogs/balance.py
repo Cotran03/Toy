@@ -64,6 +64,10 @@ class StoreView(discord.ui.View):
     def _refresh_role_options(self) -> None:
         self.role_select.options = self._build_role_options()
 
+    def _disable_all_items(self) -> None:
+        for item in self.children:
+            item.disabled = True
+
     async def _send_ephemeral(
         self,
         interaction: discord.Interaction,
@@ -243,7 +247,7 @@ class StoreView(discord.ui.View):
 
         price = item["price"]
         new_balance = complete_store_purchase(member.id, price)
-        self.disable_all_items()
+        self._disable_all_items()
 
         await interaction.response.edit_message(
             embed=store_purchase_result_embed(role.name, price, new_balance),

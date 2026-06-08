@@ -1,6 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import discord
+
+
+WARNING_TIMEZONE = ZoneInfo("Asia/Seoul")
 
 
 def _display_name(user: discord.User | discord.Member) -> str:
@@ -8,7 +12,12 @@ def _display_name(user: discord.User | discord.Member) -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(WARNING_TIMEZONE)
+
+
+def _expiration_text(days: int) -> str:
+    timestamp = int((_now() + timedelta(days=days)).timestamp())
+    return f"<t:{timestamp}:F>\n<t:{timestamp}:R>"
 
 
 def warn_notice_embed(
@@ -25,12 +34,13 @@ def warn_notice_embed(
         timestamp=_now(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="대상", value=member.display_name, inline=False)
+    embed.add_field(name="대상", value=f"{member.mention}\n`{member.id}`", inline=False)
     embed.add_field(name="이번 경고 수", value=f"`{added}회`", inline=True)
     embed.add_field(name="누적 경고 수", value=f"`{total}회`", inline=True)
     embed.add_field(name="사유", value=reason, inline=False)
     embed.add_field(name="제재", value=f"`{punishment}`", inline=True)
     embed.add_field(name="처리자", value=moderator.display_name, inline=True)
+    embed.add_field(name="경고 차감 예정", value=_expiration_text(30), inline=False)
     return embed
 
 

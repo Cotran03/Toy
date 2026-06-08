@@ -322,6 +322,7 @@ class SecondaryWarn(commands.Cog):
             role,
             interaction.user,
             INQUIRY_CHANNEL,
+            WARN_EXPIRE_DAYS,
         )
         await interaction.response.send_message(embed=notice_embed, ephemeral=True)
         await self._send_channel_message(WARN_NOTICE_CHANNEL, embed=notice_embed)
