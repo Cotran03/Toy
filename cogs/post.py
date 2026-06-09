@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import GUILD_ID, PROMOTE_CHANNEL
+from config import GUILD_ID, PROMOTE_CHANNEL, ROLE_PROMOTE_MENTION
 from services.post_service import (
     build_ended_tags,
     can_end_post,
@@ -197,7 +197,16 @@ class Post(commands.Cog):
 
         promote_channel = self.bot.get_channel(PROMOTE_CHANNEL)
         if promote_channel:
-            await promote_channel.send(embed=promote_channel_embed(member, channel))
+            promote_mention = discord.Object(id=ROLE_PROMOTE_MENTION)
+            await promote_channel.send(
+                content=f"<@&{ROLE_PROMOTE_MENTION}>",
+                embed=promote_channel_embed(member, channel),
+                allowed_mentions=discord.AllowedMentions(
+                    everyone=False,
+                    users=False,
+                    roles=[promote_mention],
+                ),
+            )
 
         new_used, balance = record_promote(member.id, promote_cost)
 
