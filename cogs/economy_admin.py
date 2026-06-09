@@ -1,7 +1,8 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 
-from config import USER_CREATOR
+from config import GUILD_ID, USER_CREATOR
 from db.database import (
     ECONOMY_SETTING_DEFAULTS,
     get_all_economy_settings,
@@ -35,6 +36,7 @@ SETTING_ALIASES = {
     "홍보비용": "promote_cost",
 }
 MAX_ECONOMY_VALUE = 1_000_000_000
+GUILD = discord.Object(id=GUILD_ID)
 
 
 class EconomyAdmin(commands.Cog):
@@ -72,28 +74,31 @@ class EconomyAdmin(commands.Cog):
         for role_id, item in store_items.items():
             role = guild.get_role(role_id)
             role_name = (role.name if role else item["label"])[:40]
-            lines.append(f"- {role_name} (`{role_id}`): {item['price']:,} INS")
+            lines.append(f"- {role_name}: {item['price']:,} INS")
 
-        lines.extend(
-            [
-                "\n사용법",
-                "- `&economy set [항목] [값]`",
-                "- `&economy reset [항목]`",
-                "- `&economy store @역할 [가격]`",
-                "- `&economy resetstore @역할`",
-            ]
-        )
         return "\n".join(lines)
 
-    @commands.group(name="economy", invoke_without_command=True)
-    async def economy(self, ctx: commands.Context) -> None:
-        if not await self._ensure_creator(ctx, "&economy"):
+    @app_commands.command(name="economy", description="현재 경제 설정과 상점 가격을 확인합니다.")
+    @app_commands.guilds(GUILD)
+    async def economy(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None:
+            await interaction.response.send_message("서버 정보를 가져올 수 없습니다.", ephemeral=True)
             return
 
-        await send_command_result(self.bot, "&economy 현재 설정", self._build_summary(ctx.guild))
-        await send_log(self.bot, ctx.author, "&economy", "경제 설정 조회")
+        embed = discord.Embed(
+            title="현재 경제 설정",
+            description=self._build_summary(interaction.guild),
+            color=0x5865F2,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await send_log(self.bot, interaction.user, "/economy", "경제 설정 조회")
 
-    @economy.command(name="set")
+    @commands.group(name="economy", invoke_without_command=True, hidden=True)
+    async def economy_admin(self, ctx: commands.Context) -> None:
+        await ctx.message.delete()
+        await send_log(self.bot, ctx.author, "&economy", "/economy 사용 안내")
+
+    @economy_admin.command(name="set")
     async def economy_set(self, ctx: commands.Context, setting: str | None = None, value: int | None = None) -> None:
         if not await self._ensure_creator(ctx, "&economy set"):
             return
@@ -122,7 +127,7 @@ class EconomyAdmin(commands.Cog):
             f"{key}: {old_value} -> {value}",
         )
 
-    @economy.command(name="reset")
+    @economy_admin.command(name="reset")
     async def economy_reset(self, ctx: commands.Context, setting: str | None = None) -> None:
         if not await self._ensure_creator(ctx, "&economy reset"):
             return
@@ -151,7 +156,7 @@ class EconomyAdmin(commands.Cog):
             f"{key}: {old_value} -> default {default_value}",
         )
 
-    @economy.command(name="store")
+    @economy_admin.command(name="store")
     async def economy_store(
         self,
         ctx: commands.Context,
@@ -184,7 +189,7 @@ class EconomyAdmin(commands.Cog):
             f"{role.name} ({role.id}): {old_price} -> {price}",
         )
 
-    @economy.command(name="resetstore")
+    @economy_admin.command(name="resetstore")
     async def economy_reset_store(
         self,
         ctx: commands.Context,

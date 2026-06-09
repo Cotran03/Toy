@@ -36,8 +36,6 @@ BOT_COMMAND_NOTICE = """
 
 &restoredb [백업파일명.db] : 지정한 DB 백업 파일로 현재 DB를 복구합니다.
 
-&economy: 현재 경제 설정과 상점 가격을 조회합니다.
-
 &economy set [항목] [값]: 보상·차감·비용 설정값을 변경합니다.
 > 일일 보상: daily_reward, daily, 일일보상
 > 포스트 종료 보상: end_reward, end, 종료보상
