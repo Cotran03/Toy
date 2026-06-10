@@ -1,11 +1,11 @@
 from datetime import datetime
-import re
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import ADMIN_INFO_ROLES, BOT_COMMAND_CHANNEL, CLEAR_ROLES, GUILD_ID, ROLE_INFO_ADVANCED
+from config import ADMIN_INFO_ROLES, CLEAR_ROLES, GUILD_ID, ROLE_INFO_ADVANCED
 from db.database import (
     ensure_user,
     get_active_post_count,
@@ -17,17 +17,31 @@ from db.database import (
     get_total_promote_count,
     get_warning_count,
 )
-from utils.send_log import send_command_result, send_log
-from utils.check_permission import has_any_role
+from utils.app_permissions import any_role
+from utils.interactions import send_ephemeral
+from utils.send_log import send_log
 from views.etc_embed import info_embed
 
 
 GUILD = discord.Object(id=GUILD_ID)
 CLEAR_LIMIT = 100
-USER_ID_PATTERN = re.compile(r"^(?:<@!?(\d+)>|(\d{15,25}))$")
+INFO_TIMEZONE = ZoneInfo("Asia/Seoul")
 
 
 class Etc(commands.Cog):
+    cleanup_admin = app_commands.Group(
+        name="cleanup",
+        description="채널 메시지를 관리합니다.",
+        guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions.none(),
+    )
+    info_admin = app_commands.Group(
+        name="userinfo",
+        description="사용자의 상세 서버 정보를 확인합니다.",
+        guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions.none(),
+    )
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -39,7 +53,8 @@ class Etc(commands.Cog):
         if joined_at is None:
             return "알 수 없음", "알 수 없음"
 
-        now = datetime.now(tz=joined_at.tzinfo) if joined_at.tzinfo else datetime.utcnow()
+        joined_at = joined_at.replace(tzinfo=INFO_TIMEZONE) if joined_at.tzinfo is None else joined_at.astimezone(INFO_TIMEZONE)
+        now = datetime.now(INFO_TIMEZONE)
         elapsed = now - joined_at
         days = elapsed.days
         hours = elapsed.seconds // 3600
@@ -63,89 +78,35 @@ class Etc(commands.Cog):
             "last_reward_date": get_last_reward_date(member.id),
         }
 
-    async def _resolve_member(self, ctx: commands.Context, target: str | None) -> discord.Member | None:
-        if target is None:
-            return None
-
-        target = target.strip()
-        if not target:
-            return None
-
-        guild = ctx.guild
-        if guild is None:
-            return None
-
-        match = USER_ID_PATTERN.match(target)
-        if match:
-            user_id = int(match.group(1) or match.group(2))
-            member = guild.get_member(user_id)
-            if member is not None:
-                return member
-
-            try:
-                return await guild.fetch_member(user_id)
-            except (discord.NotFound, discord.HTTPException):
-                return None
-
-        try:
-            return await commands.MemberConverter().convert(ctx, target)
-        except commands.BadArgument:
-            return None
-
-    async def _bot_command_channel(self) -> discord.abc.Messageable | None:
-        channel = self.bot.get_channel(BOT_COMMAND_CHANNEL)
-        if channel is not None:
-            return channel
-
-        try:
-            return await self.bot.fetch_channel(BOT_COMMAND_CHANNEL)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException) as exc:
-            print(f"[admin_info] 봇 명령어 채널 조회 실패 ({BOT_COMMAND_CHANNEL}): {exc}")
-            return None
-
-    async def _send_admin_info(self, member: discord.Member) -> bool:
-        channel = await self._bot_command_channel()
-        if channel is None:
-            return False
-
-        if not hasattr(channel, "send"):
-            print(f"[admin_info] 봇 명령어 채널이 메시지를 보낼 수 없는 타입입니다: {type(channel).__name__}")
-            return False
-
-        try:
-            await channel.send(embed=info_embed(member, self._build_info_data(member, advanced=True)))
-        except (discord.Forbidden, discord.HTTPException) as exc:
-            print(f"[admin_info] 사용자 정보 전송 실패 ({BOT_COMMAND_CHANNEL}): {exc}")
-            return False
-
-        return True
-
-    @commands.command(name="clear")
-    async def clear(self, ctx: commands.Context, amount: int | None = None) -> None:
-        if not has_any_role(ctx.author, CLEAR_ROLES):
-            await ctx.message.delete()
-            await send_log(self.bot, ctx.author, "&clear", "권한 없는 사용자가 명령어 사용 시도")
-            return
-
-        await ctx.message.delete()
-
-        if amount is None or amount < 1 or amount > CLEAR_LIMIT:
-            await send_command_result(
-                self.bot,
-                "&clear 결과",
-                f"사용법: &clear [횟수]\n횟수는 1부터 {CLEAR_LIMIT}까지 입력할 수 있습니다.",
-            )
+    @cleanup_admin.command(name="clear", description="현재 채널의 최근 메시지를 삭제합니다.")
+    @app_commands.describe(amount="삭제할 메시지 수")
+    @any_role(CLEAR_ROLES)
+    async def clear(
+        self,
+        interaction: discord.Interaction,
+        amount: app_commands.Range[int, 1, CLEAR_LIMIT],
+    ) -> None:
+        channel = interaction.channel
+        if channel is None or not hasattr(channel, "purge"):
+            await send_ephemeral(interaction, "이 채널에서는 메시지를 삭제할 수 없습니다.")
             await send_log(
                 self.bot,
-                ctx.author,
-                "&clear",
-                f"잘못된 인자 입력 — 사용법: &clear [횟수](최대 {CLEAR_LIMIT}개)",
+                interaction.user,
+                "/cleanup clear",
+                "메시지를 삭제할 수 없는 채널에서 사용 시도",
             )
             return
 
-        deleted = await ctx.channel.purge(limit=amount)
-        await send_command_result(self.bot, "&clear 결과", f"#{ctx.channel.name}에서 {len(deleted)}개 메시지 삭제")
-        await send_log(self.bot, ctx.author, "&clear", f"#{ctx.channel.name}에서 {len(deleted)}개 메시지 삭제")
+        await interaction.response.defer(ephemeral=True)
+        deleted = await channel.purge(limit=amount)
+        channel_name = getattr(channel, "name", "현재 채널")
+        await send_ephemeral(interaction, f"#{channel_name}에서 {len(deleted)}개 메시지를 삭제했습니다.")
+        await send_log(
+            self.bot,
+            interaction.user,
+            "/cleanup clear",
+            f"#{channel_name}에서 {len(deleted)}개 메시지 삭제",
+        )
 
     @app_commands.command(name="ping", description="봇의 응답 속도를 확인합니다.")
     @app_commands.guilds(GUILD)
@@ -156,7 +117,7 @@ class Etc(commands.Cog):
             ephemeral=False,
             delete_after=5,
         )
-        await send_log(self.bot, interaction.user, "/ping", f"봇 응답 속도 확인 — {latency:.2f}ms")
+        await send_log(self.bot, interaction.user, "/ping", f"봇 응답 속도 확인 - {latency:.2f}ms")
 
     @app_commands.command(name="info", description="본인의 서버 정보를 확인합니다.")
     @app_commands.describe(보이기="다른 사용자에게도 보이게 할지 선택합니다.")
@@ -168,29 +129,15 @@ class Etc(commands.Cog):
         await interaction.response.send_message(embed=info_embed(member, info_data), ephemeral=not 보이기)
         await send_log(self.bot, member, "/info", "개인 정보 조회")
 
-
-    @commands.command(name="info")
-    async def admin_info(self, ctx: commands.Context, *, target: str | None = None) -> None:
-        if not has_any_role(ctx.author, ADMIN_INFO_ROLES):
-            await ctx.message.delete()
-            await send_log(self.bot, ctx.author, "&info", "권한 없는 사용자")
-            return
-
-        await ctx.message.delete()
-
-        member = await self._resolve_member(ctx, target)
-        if member is None:
-            await send_command_result(self.bot, "&info 결과", "사용법: &info 유저ID")
-            await send_log(self.bot, ctx.author, "&info", "사용법: &info 유저ID")
-            return
-
-        sent = await self._send_admin_info(member)
-        if not sent:
-            await send_command_result(self.bot, "&info 결과", f"전송 실패 / 대상: {member}")
-            await send_log(self.bot, ctx.author, "&info", f"전송 실패 / 대상: {member}")
-            return
-
-        await send_log(self.bot, ctx.author, "&info", f"대상: {member}")
+    @info_admin.command(name="member", description="사용자의 상세 서버 정보를 확인합니다.")
+    @app_commands.describe(member="조회할 사용자")
+    @any_role(ADMIN_INFO_ROLES)
+    async def admin_info(self, interaction: discord.Interaction, member: discord.Member) -> None:
+        await interaction.response.send_message(
+            embed=info_embed(member, self._build_info_data(member, advanced=True)),
+            ephemeral=True,
+        )
+        await send_log(self.bot, interaction.user, "/userinfo member", f"대상: {member}")
 
 
 async def setup(bot: commands.Bot) -> None:

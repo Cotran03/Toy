@@ -70,16 +70,6 @@ def ensure_secondary_user(user_id: int) -> None:
         conn.commit()
 
 
-def is_secondary_banned(user_id: int) -> bool:
-    ensure_secondary_user(user_id)
-    with secondary_warn_connection() as conn:
-        row = conn.execute(
-            "SELECT is_banned FROM users WHERE user_id = ?",
-            (user_id,),
-        ).fetchone()
-    return bool(row["is_banned"]) if row else False
-
-
 def set_secondary_banned(user_id: int, is_banned: bool) -> None:
     ensure_secondary_user(user_id)
     with secondary_warn_connection() as conn:

@@ -15,7 +15,6 @@ ECONOMY_SETTING_DEFAULTS = {
     "warn_penalty": WARN_PENALTY,
     "promote_cost": PROMOTE_COST,
 }
-STORE_PRICE_PREFIX = "store_price:"
 
 
 def get_economy_setting(key: str) -> int:
@@ -45,7 +44,7 @@ def set_economy_setting(key: str, value: int) -> int:
         conn.execute(
             """
             INSERT INTO economy_settings (key, value, updated_at)
-            VALUES (?, ?, datetime('now'))
+            VALUES (?, ?, datetime('now', '+9 hours'))
             ON CONFLICT(key) DO UPDATE SET
                 value = excluded.value,
                 updated_at = excluded.updated_at
@@ -68,38 +67,23 @@ def reset_economy_setting(key: str) -> int:
     return ECONOMY_SETTING_DEFAULTS[key]
 
 
-def _store_price_key(role_id: int) -> str:
-    return f"{STORE_PRICE_PREFIX}{role_id}"
-
-
-def get_store_price(role_id: int) -> int:
-    item = STORE_ITEMS.get(role_id)
-    if item is None:
-        raise KeyError(role_id)
-
-    with get_connection() as conn:
-        row = conn.execute(
-            "SELECT value FROM economy_settings WHERE key = ?",
-            (_store_price_key(role_id),),
-        ).fetchone()
-
-    return row["value"] if row else item["price"]
-
-
 def get_store_items() -> dict[int, dict]:
     items = {role_id: item.copy() for role_id, item in STORE_ITEMS.items()}
-    keys = [_store_price_key(role_id) for role_id in items]
-    placeholders = ", ".join("?" for _ in keys)
+    if not items:
+        return {}
+
+    role_ids = list(items)
+    placeholders = ", ".join("?" for _ in role_ids)
 
     with get_connection() as conn:
         rows = conn.execute(
-            f"SELECT key, value FROM economy_settings WHERE key IN ({placeholders})",
-            keys,
+            f"SELECT role_id, price FROM store_prices WHERE role_id IN ({placeholders})",
+            role_ids,
         ).fetchall()
 
-    overrides = {row["key"]: row["value"] for row in rows}
+    overrides = {row["role_id"]: row["price"] for row in rows}
     for role_id, item in items.items():
-        item["price"] = overrides.get(_store_price_key(role_id), item["price"])
+        item["price"] = overrides.get(role_id, item["price"])
 
     return items
 
@@ -110,17 +94,16 @@ def set_store_price(role_id: int, price: int) -> int:
     if price < 0:
         raise ValueError("가격은 0 이상이어야 합니다.")
 
-    key = _store_price_key(role_id)
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO economy_settings (key, value, updated_at)
-            VALUES (?, ?, datetime('now'))
-            ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value,
+            INSERT INTO store_prices (role_id, price, updated_at)
+            VALUES (?, ?, datetime('now', '+9 hours'))
+            ON CONFLICT(role_id) DO UPDATE SET
+                price = excluded.price,
                 updated_at = excluded.updated_at
             """,
-            (key, price),
+            (role_id, price),
         )
         conn.commit()
 
@@ -134,8 +117,8 @@ def reset_store_price(role_id: int) -> int:
 
     with get_connection() as conn:
         conn.execute(
-            "DELETE FROM economy_settings WHERE key = ?",
-            (_store_price_key(role_id),),
+            "DELETE FROM store_prices WHERE role_id = ?",
+            (role_id,),
         )
         conn.commit()
 

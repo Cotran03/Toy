@@ -33,6 +33,24 @@ def deduct_balance(user_id: int, amount: int) -> int:
     return get_balance(user_id)
 
 
+def charge_balance(user_id: int, amount: int) -> int | None:
+    """Deduct INS only when the full amount is available."""
+    ensure_user(user_id)
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE users
+            SET balance = balance - ?
+            WHERE user_id = ? AND balance >= ?
+            """,
+            (amount, user_id, amount),
+        )
+        conn.commit()
+        if cursor.rowcount == 0:
+            return None
+    return get_balance(user_id)
+
+
 def set_balance(user_id: int, amount: int) -> int:
     """Set INS balance directly, clamped to zero or above."""
     ensure_user(user_id)

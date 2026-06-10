@@ -82,7 +82,60 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS economy_settings (
                 key        TEXT PRIMARY KEY,
                 value      INTEGER NOT NULL CHECK(value >= 0),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS store_prices (
+                role_id    INTEGER PRIMARY KEY,
+                price      INTEGER NOT NULL CHECK(price >= 0),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
+            )
+        """)
+        cursor.execute("""
+            INSERT OR REPLACE INTO store_prices (role_id, price, updated_at)
+            SELECT
+                CAST(substr(key, length('store_price:') + 1) AS INTEGER),
+                value,
+                updated_at
+            FROM economy_settings
+            WHERE key LIKE 'store_price:%'
+        """)
+        cursor.execute("DELETE FROM economy_settings WHERE key LIKE 'store_price:%'")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discussion_settings (
+                key        TEXT PRIMARY KEY,
+                value      INTEGER NOT NULL CHECK(value >= 1),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discussion_forum_exclusion_periods (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                forum_id   INTEGER NOT NULL,
+                started_at INTEGER NOT NULL,
+                ended_at   INTEGER
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_discussion_forum_exclusion_periods_forum
+            ON discussion_forum_exclusion_periods (forum_id, started_at, ended_at)
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discussion_deleted_forums (
+                forum_id   INTEGER PRIMARY KEY,
+                deleted_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bot_settings (
+                key        TEXT PRIMARY KEY,
+                value      TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
             )
         """)
 

@@ -4,51 +4,12 @@ from dataclasses import dataclass
 import discord
 from discord.ext import commands
 
-from config import BOT_COMMAND_CHANNEL, MEDIA_CHANNEL
+from config import MEDIA_CHANNEL
+from utils.activity_guard import is_restore_in_progress
+from utils.send_log import send_system_log
 
 
 MEDIA_NOTICE = "미디어방에서 채팅은 삼가해주시길 바랍니다."
-BOT_COMMAND_NOTICE = """
-```# 관리자 명령어
-&sync : 슬래시 명령어를 현재 길드에 동기화합니다.
-
-&reload : 모든 Cog를 다시 불러와 봇 기능을 갱신합니다.
-
-&clear [개수:필수] : 현재 채널의 메시지를 지정한 개수만큼 삭제합니다.
-
-&info @유저 : 대상 유저의 상세 서버 정보를 조회합니다.
-
-&sendverify : 인증 채널에 인증 버튼 메시지를 전송합니다.
-
-&addINS @유저 [금액] [사유:선택] : 대상 유저에게 INS를 추가합니다.
-
-&delINS @유저 [금액] [사유:선택] : 대상 유저의 INS를 차감합니다.
-
-&resetINS @유저 [사유:필수] : 대상 유저의 INS 잔액을 0으로 초기화합니다.
-
-&warn @유저 [개수] [사유:필수] : 대상 유저에게 경고를 부여하고 누적 경고에 따른 제재를 적용합니다.
-
-&warnoff @유저/유저ID : 대상 유저의 경고를 1개 차감하고 필요 시 제재를 해제합니다.
-
-&backups : 현재 보관 중인 DB 백업본 목록을 최신순으로 표시합니다.
-
-&restoredb latest : 가장 최신 DB 백업본으로 현재 DB를 복구합니다.
-
-&restoredb [백업파일명.db] : 지정한 DB 백업 파일로 현재 DB를 복구합니다.
-
-&economy set [항목] [값]: 보상·차감·비용 설정값을 변경합니다.
-> 일일 보상: daily_reward, daily, 일일보상
-> 포스트 종료 보상: end_reward, end, 종료보상
-> 경고 재화 차감: warn_penalty, warn, 경고차감
-> 홍보 비용: promote_cost, promote, 홍보비용
-
-&economy reset [항목]: 경제 설정을 config/economy.py 기본값으로 복원합니다.
-
-&economy store @역할 [가격]: 상점 역할의 가격을 변경합니다.
-
-&economy resetstore @역할: 상점 역할 가격을 config/store.py 기본값으로 복원합니다.
-> 상점에 등록된 역할 이름```
-""".strip()
 NOTICE_HISTORY_LIMIT = 100
 MESSAGE_CONTENT_LIMIT = 2000
 
@@ -72,10 +33,6 @@ CHANNEL_AUTOMATION_RULES = {
         include_bot_messages=False,
         thread_fallback_name="미디어",
     ),
-    BOT_COMMAND_CHANNEL: ChannelAutomationRule(
-        channel_id=BOT_COMMAND_CHANNEL,
-        notice=BOT_COMMAND_NOTICE,
-    ),
 }
 
 
@@ -95,10 +52,12 @@ class ChannelAutomation(commands.Cog):
                 channel = await self.bot.fetch_channel(channel_id)
             except (discord.Forbidden, discord.NotFound, discord.HTTPException) as exc:
                 print(f"[channel_automation] 채널 조회 실패 ({channel_id}): {exc}")
+                await send_system_log(self.bot, "미디어 자동화 실패", f"채널 조회 실패 ({channel_id}) / {exc}")
                 return None
 
         if not isinstance(channel, discord.TextChannel):
             print(f"[channel_automation] 텍스트 채널이 아닙니다 ({channel_id})")
+            await send_system_log(self.bot, "미디어 자동화 실패", f"텍스트 채널이 아님 ({channel_id})")
             return None
 
         return channel
@@ -132,6 +91,7 @@ class ChannelAutomation(commands.Cog):
             await message.create_thread(name=self._thread_name(message, rule))
         except (discord.Forbidden, discord.HTTPException) as exc:
             print(f"[channel_automation] 스레드 생성 실패 ({message.id}): {exc}")
+            await send_system_log(self.bot, "미디어 자동화 실패", f"스레드 생성 실패 / 메시지 {message.id} / {exc}")
 
     async def _find_previous_notice(
         self,
@@ -145,6 +105,7 @@ class ChannelAutomation(commands.Cog):
             history = [message async for message in channel.history(limit=NOTICE_HISTORY_LIMIT)]
         except (discord.Forbidden, discord.HTTPException) as exc:
             print(f"[channel_automation] 기존 안내 메시지 조회 실패 ({channel.id}): {exc}")
+            await send_system_log(self.bot, "미디어 자동화 실패", f"기존 안내 메시지 조회 실패 ({channel.id}) / {exc}")
             return []
 
         notice_count = len(notice_chunks)
@@ -179,11 +140,16 @@ class ChannelAutomation(commands.Cog):
                     pass
                 except (discord.Forbidden, discord.HTTPException) as exc:
                     print(f"[channel_automation] 기존 안내 메시지 삭제 실패 ({previous_notice.id}): {exc}")
+                    await send_system_log(
+                        self.bot,
+                        "미디어 자동화 실패",
+                        f"기존 안내 메시지 삭제 실패 ({previous_notice.id}) / {exc}",
+                    )
 
             sent_notices: list[discord.Message] = []
             try:
                 for notice_chunk in notice_chunks:
-                    sent_notices.append(await channel.send(notice_chunk))
+                    sent_notices.append(await channel.send(notice_chunk, silent=True))
 
                 self.notice_messages[channel.id] = sent_notices
             except (discord.Forbidden, discord.HTTPException) as exc:
@@ -192,9 +158,13 @@ class ChannelAutomation(commands.Cog):
                 else:
                     self.notice_messages.pop(channel.id, None)
                 print(f"[channel_automation] 안내 메시지 전송 실패 ({channel.id}): {exc}")
+                await send_system_log(self.bot, "미디어 자동화 실패", f"안내 메시지 전송 실패 / 채널 {channel.id} / {exc}")
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
+        if is_restore_in_progress(self.bot):
+            return
+
         if self.initial_notices_sent:
             return
 
@@ -209,6 +179,9 @@ class ChannelAutomation(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
+        if is_restore_in_progress(self.bot):
+            return
+
         rule = CHANNEL_AUTOMATION_RULES.get(message.channel.id)
         if rule is None or not rule.notice:
             return

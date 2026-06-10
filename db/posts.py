@@ -43,3 +43,41 @@ def increment_end_count(user_id: int) -> int:
         )
         conn.commit()
     return get_end_count(user_id)
+
+
+def complete_post_end(user_id: int, reward: int) -> tuple[int, int]:
+    """Increment the end count and grant its reward atomically."""
+    ensure_user(user_id)
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE users
+            SET end_count = end_count + 1,
+                balance = balance + ?
+            WHERE user_id = ?
+            """,
+            (reward, user_id),
+        )
+        user = conn.execute(
+            "SELECT end_count, balance FROM users WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        conn.commit()
+    return user["end_count"], user["balance"]
+
+
+def set_post_counts(user_id: int, post_count: int, end_count: int) -> tuple[int, int]:
+    """Set the user's post counters and return the stored values."""
+    if post_count < 0 or end_count < 0:
+        raise ValueError("토론 횟수는 0 이상이어야 합니다.")
+    if end_count > post_count:
+        raise ValueError("종료한 토론 수는 게시한 토론 수보다 많을 수 없습니다.")
+
+    ensure_user(user_id)
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE users SET post_count = ?, end_count = ? WHERE user_id = ?",
+            (post_count, end_count, user_id),
+        )
+        conn.commit()
+    return get_post_count(user_id), get_end_count(user_id)

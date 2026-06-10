@@ -4,12 +4,7 @@ import discord
 # Import Config
 from config import (
     GUILD_ID,
-    POST_ACTIVE_LIMIT,
-    POST_ACTIVE_LIMIT_MULTITASKER,
-    POST_COUNT_EXCLUDED_FORUM_CHANNELS,
     POST_END_ROLES,
-    PROMOTE_ADVANCED_DAILY_LIMIT,
-    PROMOTE_DAILY_LIMIT,
     ROLE_MULTITASKER,
     ROLE_PROMOTER,
     ROLE_PROMOTER_ADVANCED,
@@ -19,16 +14,18 @@ from config import (
 
 # Import DB
 from db.database import (
-    add_balance,
-    deduct_balance,
+    complete_post_end,
+    complete_promote,
     ensure_user,
     get_active_post_count,
     get_balance,
+    get_discussion_setting,
     get_economy_setting,
     get_promote_info,
     increment_end_count,
     increment_post_count,
-    increment_promote,
+    is_forum_excluded_at,
+    set_post_counts,
 )
 
 
@@ -41,12 +38,15 @@ def get_promote_cost() -> int:
 
 
 def is_forum_post_channel(channel) -> bool:
-    return (
-        isinstance(channel, discord.Thread)
-        and isinstance(channel.parent, discord.ForumChannel)
-        and channel.guild.id == GUILD_ID
-        and channel.parent.id not in POST_COUNT_EXCLUDED_FORUM_CHANNELS
-    )
+    if (
+        not isinstance(channel, discord.Thread)
+        or not isinstance(channel.parent, discord.ForumChannel)
+        or channel.guild.id != GUILD_ID
+    ):
+        return False
+
+    created_at = int(channel.created_at.timestamp() * 1000)
+    return not is_forum_excluded_at(channel.parent.id, created_at)
 
 
 def can_end_post(member: discord.Member, channel: discord.Thread) -> bool:
@@ -69,25 +69,27 @@ def build_ended_tags(channel: discord.Thread) -> tuple[list[discord.ForumTag] | 
     return new_tags, None
 
 
+def is_ended_post(channel: discord.Thread) -> bool:
+    return any(tag.name == TAG_ENDED for tag in channel.applied_tags)
+
+
 def record_post_end(user_id: int) -> tuple[int, int]:
-    end_count = increment_end_count(user_id)
-    balance = add_balance(user_id, get_end_reward_amount())
-    return end_count, balance
+    return complete_post_end(user_id, get_end_reward_amount())
+
+
+def record_post_close(user_id: int) -> int:
+    return increment_end_count(user_id)
 
 
 def get_active_post_limit(member: discord.Member) -> int:
     if any(role.id == ROLE_MULTITASKER for role in member.roles):
-        return POST_ACTIVE_LIMIT_MULTITASKER
-    return POST_ACTIVE_LIMIT
+        return get_discussion_setting("post_active_limit_multitasker")
+    return get_discussion_setting("post_active_limit")
 
 
 def get_active_post_usage(user_id: int) -> int:
     ensure_user(user_id)
     return get_active_post_count(user_id)
-
-
-def has_active_post_slot(member: discord.Member) -> bool:
-    return get_active_post_usage(member.id) < get_active_post_limit(member)
 
 
 def record_post_create(user_id: int) -> int:
@@ -101,8 +103,8 @@ def can_promote(member: discord.Member) -> bool:
 def get_promote_limit(member: discord.Member) -> int:
     role_ids = {role.id for role in member.roles}
     if ROLE_PROMOTER in role_ids and ROLE_PROMOTER_ADVANCED in role_ids:
-        return PROMOTE_ADVANCED_DAILY_LIMIT
-    return PROMOTE_DAILY_LIMIT
+        return get_discussion_setting("promote_advanced_daily_limit")
+    return get_discussion_setting("promote_daily_limit")
 
 
 def get_promote_usage(user_id: int) -> int:
@@ -120,7 +122,9 @@ def has_promote_cost(user_id: int, cost: int | None = None) -> bool:
     return get_balance(user_id) >= (get_promote_cost() if cost is None else cost)
 
 
-def record_promote(user_id: int, cost: int | None = None) -> tuple[int, int]:
-    new_used = increment_promote(user_id)
-    new_balance = deduct_balance(user_id, get_promote_cost() if cost is None else cost)
-    return new_used, new_balance
+def record_promote(user_id: int, limit: int, cost: int | None = None) -> tuple[bool, str, int, int]:
+    return complete_promote(user_id, get_promote_cost() if cost is None else cost, limit)
+
+
+def set_user_post_counts(user_id: int, post_count: int, end_count: int) -> tuple[int, int]:
+    return set_post_counts(user_id, post_count, end_count)

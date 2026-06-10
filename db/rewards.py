@@ -14,11 +14,6 @@ def _today() -> date:
     return datetime.now(REWARD_TIMEZONE).date()
 
 
-def get_reward_date() -> date:
-    """Return the date used for daily reward resets."""
-    return _today()
-
-
 def _parse_reward_date(value: str | None) -> date | None:
     if not value:
         return None
@@ -27,15 +22,6 @@ def _parse_reward_date(value: str | None) -> date | None:
         return date.fromisoformat(value)
     except ValueError:
         return None
-
-
-def can_claim_reward(user_id: int) -> bool:
-    """Return True if the user has not claimed today's reward."""
-    user = get_user(user_id)
-    last_reward_date = _parse_reward_date(user["last_reward_date"] if user else None)
-    if last_reward_date is None:
-        return True
-    return last_reward_date != _today()
 
 
 def get_reward_streak(user_id: int) -> int:
@@ -57,28 +43,6 @@ def get_last_reward_date(user_id: int) -> str | None:
     user = get_user(user_id)
     last_reward_date = _parse_reward_date(user["last_reward_date"] if user else None)
     return last_reward_date.isoformat() if last_reward_date else None
-
-
-def set_reward_claimed(user_id: int) -> None:
-    """Mark today's daily reward as claimed."""
-    ensure_user(user_id)
-    today = _today()
-    user = get_user(user_id)
-    last_reward_date = _parse_reward_date(user["last_reward_date"] if user else None)
-    current_streak = user["reward_streak"] if user else 0
-    if last_reward_date == today:
-        next_streak = current_streak
-    elif last_reward_date == today - timedelta(days=1):
-        next_streak = current_streak + 1
-    else:
-        next_streak = 1
-
-    with get_connection() as conn:
-        conn.execute(
-            "UPDATE users SET last_reward_date = ?, reward_streak = ? WHERE user_id = ?",
-            (str(today), next_streak, user_id),
-        )
-        conn.commit()
 
 
 def claim_reward(user_id: int, amount: int) -> tuple[bool, int, int]:

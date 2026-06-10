@@ -1,21 +1,24 @@
 from datetime import timedelta
 
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 
-from config import WARN_MAX, WARN_NOTICE_CHANNEL, WARN_ROLES, WARN_RULES
+from config import GUILD_ID, WARN_MAX, WARN_NOTICE_CHANNEL, WARN_ROLES, WARN_RULES
 from db.database import (
-    add_warning,
-    deduct_balance,
     ensure_user,
     expire_old_warnings,
     get_economy_setting,
     get_warning_count,
     is_banned,
+    record_warnings_and_penalty,
     remove_warning,
     set_banned,
 )
-from utils.check_permission import has_any_role
+from utils.app_permissions import any_role
+from utils.activity_guard import is_restore_in_progress
+from utils.interactions import send_ephemeral
+from utils.punishments import adjusted_timeout_duration
 from utils.send_log import send_log, send_system_log
 from views.warn_embed import (
     warn_expire_notice_embed,
@@ -41,7 +44,18 @@ async def apply_punishment(member: discord.Member, punishment: str, reason: str)
         await member.ban(reason=reason, delete_message_days=0)
 
 
+def timeout_duration_for(total: int) -> timedelta | None:
+    return TIMEOUT_DURATION.get(WARN_RULES.get(total, ""))
+
+
 class Warn(commands.Cog):
+    warn_admin = app_commands.Group(
+        name="warn",
+        description="사용자의 경고를 관리합니다.",
+        guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions.none(),
+    )
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.warning_expire_loop.start()
@@ -49,37 +63,47 @@ class Warn(commands.Cog):
     def cog_unload(self) -> None:
         self.warning_expire_loop.cancel()
 
-    def _has_warn_permission(self, member: discord.Member) -> bool:
-        return has_any_role(member, WARN_ROLES)
-
-    async def _deny_without_permission(self, ctx: commands.Context, command_name: str) -> None:
-        await ctx.message.delete()
-        await send_log(self.bot, ctx.author, command_name, "권한 없는 사용자가 명령어 사용 시도")
-
     def _notice_channel(self) -> discord.abc.Messageable | None:
         return self.bot.get_channel(WARN_NOTICE_CHANNEL)
 
+    async def _send_notice(self, embed: discord.Embed, context: str) -> None:
+        notice_channel = self._notice_channel()
+        if notice_channel is None:
+            await send_system_log(self.bot, "경고 공지 실패", f"{context} / 공지 채널을 찾을 수 없음")
+            return
+
+        try:
+            await notice_channel.send(embed=embed)
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            await send_system_log(self.bot, "경고 공지 실패", f"{context} / {exc}")
+
     @tasks.loop(hours=24)
     async def warning_expire_loop(self) -> None:
+        if is_restore_in_progress(self.bot):
+            return
+
         try:
             expired = expire_old_warnings()
             if not expired:
                 return
 
-            notice_channel = self._notice_channel()
             total_removed = sum(count for _, count in expired)
 
             for user_id, count in expired:
                 remaining = get_warning_count(user_id)
-                if notice_channel is None:
-                    continue
 
                 try:
                     user = await self.bot.fetch_user(user_id)
                 except discord.NotFound:
                     user = None
+                except discord.HTTPException as exc:
+                    user = None
+                    await send_system_log(self.bot, "경고 만료 처리 실패", f"사용자 조회 실패 / {user_id} / {exc}")
 
-                await notice_channel.send(embed=warn_expire_notice_embed(user, count, remaining))
+                await self._send_notice(
+                    warn_expire_notice_embed(user, count, remaining),
+                    f"경고 만료 공지 / 사용자 {user_id}",
+                )
 
             await send_system_log(
                 self.bot,
@@ -88,132 +112,159 @@ class Warn(commands.Cog):
             )
         except Exception as exc:
             print(f"[경고 만료 루프 오류] {exc}")
+            await send_system_log(self.bot, "경고 만료 처리 실패", str(exc))
 
     @warning_expire_loop.before_loop
     async def before_warning_expire_loop(self) -> None:
         await self.bot.wait_until_ready()
 
-    @commands.command(name="warn")
+    @warn_admin.command(name="add", description="사용자에게 경고를 부여하고 제재를 적용합니다.")
+    @app_commands.describe(member="경고를 부여할 사용자", count="부여할 경고 수", reason="경고 사유")
+    @any_role(WARN_ROLES)
     async def warn(
         self,
-        ctx: commands.Context,
-        member: discord.Member | None = None,
-        count: int | None = None,
-        *,
-        reason: str | None = None,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        count: app_commands.Range[int, 1, WARN_MAX],
+        reason: str,
     ) -> None:
-        if not self._has_warn_permission(ctx.author):
-            await self._deny_without_permission(ctx, "&warn")
-            return
-
-        await ctx.message.delete()
-
-        if member is None or count is None or reason is None:
-            await send_log(self.bot, ctx.author, "&warn", "인자 누락 — 사용법: &warn @멤버 [횟수] [사유]")
-            return
-
-        if count < 1:
-            await send_log(self.bot, ctx.author, "&warn", "잘못된 횟수 입력 (1 이상이어야 함)")
-            return
-
+        await interaction.response.defer(ephemeral=True)
         ensure_user(member.id)
 
         current = get_warning_count(member.id)
         actual_add = min(count, WARN_MAX - current)
         if actual_add < 1:
-            await send_log(self.bot, ctx.author, "&warn", f"'{member}' 이미 최대 경고 횟수({WARN_MAX}회) 도달")
+            await send_ephemeral(interaction, f"{member.mention}님은 이미 최대 경고 수({WARN_MAX}회)에 도달했습니다.")
+            await send_log(
+                self.bot,
+                interaction.user,
+                "/warn add",
+                f"'{member}' 이미 최대 경고 횟수({WARN_MAX}회) 도달",
+            )
             return
 
-        for _ in range(actual_add):
-            add_warning(member.id, reason)
-
-        total = get_warning_count(member.id)
+        total = current + actual_add
         punishment = WARN_RULES.get(total, PUNISHMENT_BAN)
-        warn_penalty = get_economy_setting("warn_penalty")
-        remaining_balance = deduct_balance(member.id, warn_penalty)
+        try:
+            await apply_punishment(member, punishment, reason)
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            await send_ephemeral(interaction, f"제재 적용에 실패하여 경고를 기록하지 않았습니다.\n오류: {exc}")
+            await send_log(
+                self.bot,
+                interaction.user,
+                "/warn add",
+                f"제재 적용 실패 / 대상: {member} ({member.id}) / 예정 누적: {total} / {exc}",
+            )
+            return
 
-        if punishment == PUNISHMENT_BAN:
-            set_banned(member.id, True)
+        try:
+            warn_penalty = get_economy_setting("warn_penalty")
+            remaining_balance = record_warnings_and_penalty(
+                member.id,
+                actual_add,
+                reason,
+                warn_penalty,
+                punishment == PUNISHMENT_BAN,
+            )
+        except Exception as exc:
+            await send_ephemeral(interaction, "제재는 적용됐지만 경고 기록 또는 INS 차감에 실패했습니다.")
+            await send_log(
+                self.bot,
+                interaction.user,
+                "/warn add",
+                f"제재 적용 후 DB 처리 실패 / 대상: {member} ({member.id}) / {exc}",
+            )
+            return
 
-        await apply_punishment(member, punishment, reason)
+        await self._send_notice(
+            warn_notice_embed(member, actual_add, total, reason, punishment, interaction.user),
+            f"경고 부여 공지 / 사용자 {member.id}",
+        )
 
-        notice_channel = self._notice_channel()
-        if notice_channel:
-            await notice_channel.send(embed=warn_notice_embed(member, actual_add, total, reason, punishment, ctx.author))
-
+        await send_ephemeral(
+            interaction,
+            f"{member.mention}님에게 경고 {actual_add}회를 부여했습니다.\n누적 경고: {total}회 / 제재: {punishment}",
+        )
         await send_log(
             self.bot,
-            ctx.author,
-            "&warn",
+            interaction.user,
+            "/warn add",
             (
                 f"'{member}' ({member.id}) 경고 {actual_add}회 부여 / 누적 {total}회 / "
                 f"사유: {reason} / 제재: {punishment} / 재화 -{warn_penalty} (잔액: {remaining_balance})"
             ),
         )
 
-    @warn.error
-    async def warn_error(self, ctx: commands.Context, error: Exception) -> None:
-        await ctx.message.delete()
-        if isinstance(error, commands.MemberNotFound):
-            await send_log(self.bot, ctx.author, "&warn", "존재하지 않는 멤버")
-        elif isinstance(error, commands.BadArgument):
-            await send_log(self.bot, ctx.author, "&warn", "잘못된 인자 형식 — 사용법: &warn @멤버 [횟수] [사유]")
-        else:
-            await send_log(self.bot, ctx.author, "&warn", f"예상치 못한 오류: {error}")
-            print(f"[warn 오류] {error}")
-
-    @commands.command(name="warnoff")
-    async def warnoff(self, ctx: commands.Context, user: discord.User | None = None) -> None:
-        if not self._has_warn_permission(ctx.author):
-            await self._deny_without_permission(ctx, "&warnoff")
+    @warn_admin.command(name="remove", description="사용자의 최근 경고 1회를 취소합니다.")
+    @app_commands.describe(user="경고를 취소할 사용자")
+    @any_role(WARN_ROLES)
+    async def warnoff(self, interaction: discord.Interaction, user: discord.User) -> None:
+        guild = interaction.guild
+        if guild is None:
+            await send_ephemeral(interaction, "서버 정보를 가져올 수 없습니다.")
             return
 
-        await ctx.message.delete()
-
-        if user is None:
-            await send_log(self.bot, ctx.author, "&warnoff", "인자 누락 — 사용법: &warnoff @멤버 or 유저ID")
-            return
-
+        await interaction.response.defer(ephemeral=True)
         ensure_user(user.id)
 
         current = get_warning_count(user.id)
         if current == 0:
-            await send_log(self.bot, ctx.author, "&warnoff", f"'{user}' 유효한 경고 없음")
+            await send_ephemeral(interaction, f"{user.mention}님의 유효한 경고가 없습니다.")
+            await send_log(self.bot, interaction.user, "/warn remove", f"'{user}' 유효한 경고 없음")
+            return
+
+        total = current - 1
+        member = guild.get_member(user.id)
+        adjustment_notes: list[str] = []
+
+        try:
+            if is_banned(user.id):
+                await guild.unban(user, reason="경고 차감으로 인한 차단 해제")
+                if timeout_duration_for(total) is not None:
+                    adjustment_notes.append("차단 해제 후 대상이 서버 멤버가 아니므로 남은 단계의 타임아웃은 재입장 전 적용할 수 없습니다.")
+            elif member is not None:
+                previous_duration = timeout_duration_for(current)
+                new_duration = timeout_duration_for(total)
+                if new_duration is None:
+                    await member.timeout(None, reason="경고 차감으로 인한 제재 갱신")
+                else:
+                    duration = (
+                        adjusted_timeout_duration(member, previous_duration, new_duration)
+                        if previous_duration is not None
+                        else new_duration
+                    )
+                    await member.timeout(
+                        duration if duration > timedelta(0) else None,
+                        reason="경고 차감으로 인한 제재 갱신",
+                    )
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException) as exc:
+            await send_ephemeral(interaction, f"제재 조정에 실패하여 경고를 취소하지 않았습니다.\n오류: {exc}")
+            await send_log(
+                self.bot,
+                interaction.user,
+                "/warn remove",
+                f"제재 조정 실패 / 대상: {user} ({user.id}) / {exc}",
+            )
             return
 
         total = remove_warning(user.id)
+        if is_banned(user.id) and total < WARN_MAX:
+            set_banned(user.id, False)
 
-        if is_banned(user.id):
-            if total < WARN_MAX:
-                try:
-                    await ctx.guild.unban(user, reason="경고 차감으로 인한 차단 해제")
-                    set_banned(user.id, False)
-                except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-                    pass
-        else:
-            member = ctx.guild.get_member(user.id)
-            if member:
-                try:
-                    await member.timeout(None)
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+        await self._send_notice(
+            warnoff_notice_embed(user, total, interaction.user),
+            f"경고 취소 공지 / 사용자 {user.id}",
+        )
 
-        notice_channel = self._notice_channel()
-        if notice_channel:
-            await notice_channel.send(embed=warnoff_notice_embed(user, total, ctx.author))
-
-        await send_log(self.bot, ctx.author, "&warnoff", f"'{user}' ({user.id}) 경고 1회 차감 / 누적 {total}회")
-
-    @warnoff.error
-    async def warnoff_error(self, ctx: commands.Context, error: Exception) -> None:
-        await ctx.message.delete()
-        if isinstance(error, commands.UserNotFound):
-            await send_log(self.bot, ctx.author, "&warnoff", "존재하지 않는 유저")
-        elif isinstance(error, commands.BadArgument):
-            await send_log(self.bot, ctx.author, "&warnoff", "잘못된 인자 형식 — 사용법: &warnoff @멤버 or 유저ID")
-        else:
-            await send_log(self.bot, ctx.author, "&warnoff", f"예상치 못한 오류: {error}")
-            print(f"[warnoff 오류] {error}")
+        note_text = f"\n주의: {' '.join(adjustment_notes)}" if adjustment_notes else ""
+        await send_ephemeral(interaction, f"{user.mention}님의 최근 경고 1회를 취소했습니다.\n남은 경고: {total}회{note_text}")
+        await send_log(
+            self.bot,
+            interaction.user,
+            "/warn remove",
+            f"'{user}' ({user.id}) 경고 1회 차감 / 누적 {total}회"
+            + (f" / 주의: {' '.join(adjustment_notes)}" if adjustment_notes else ""),
+        )
 
 
 async def setup(bot: commands.Bot) -> None:

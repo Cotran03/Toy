@@ -41,16 +41,39 @@ def get_warning_count(user_id: int) -> int:
     return len(get_warnings(user_id))
 
 
-def add_warning(user_id: int, reason: str = "") -> int:
-    """Add a warning and return the updated warning count."""
+def record_warnings_and_penalty(
+    user_id: int,
+    count: int,
+    reason: str,
+    penalty: int,
+    banned: bool,
+) -> int:
+    """Record warnings, one command penalty, and ban state atomically."""
+    if count < 1:
+        raise ValueError("경고 수는 1 이상이어야 합니다.")
+
     ensure_user(user_id)
+    warned_at = _now_text()
     with get_connection() as conn:
-        conn.execute(
+        conn.executemany(
             "INSERT INTO warnings (user_id, reason, warned_at) VALUES (?, ?, ?)",
-            (user_id, reason, _now_text()),
+            [(user_id, reason, warned_at)] * count,
         )
+        conn.execute(
+            """
+            UPDATE users
+            SET balance = MAX(0, balance - ?),
+                is_banned = CASE WHEN ? = 1 THEN 1 ELSE is_banned END
+            WHERE user_id = ?
+            """,
+            (penalty, 1 if banned else 0, user_id),
+        )
+        balance = conn.execute(
+            "SELECT balance FROM users WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()["balance"]
         conn.commit()
-    return get_warning_count(user_id)
+    return balance
 
 
 def remove_warning(user_id: int) -> int:
@@ -71,13 +94,6 @@ def remove_warning(user_id: int) -> int:
         )
         conn.commit()
     return get_warning_count(user_id)
-
-
-def clear_warnings(user_id: int) -> None:
-    """Remove all warnings for a user."""
-    with get_connection() as conn:
-        conn.execute("DELETE FROM warnings WHERE user_id = ?", (user_id,))
-        conn.commit()
 
 
 def expire_old_warnings() -> list[tuple[int, int]]:

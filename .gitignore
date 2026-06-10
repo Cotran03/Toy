@@ -5,6 +5,7 @@ bot.db
 db/secondary_warn.db
 *.db-journal
 db/backups/
+db/secondary_backups/
 bot.py
 bot2.py
 txt/

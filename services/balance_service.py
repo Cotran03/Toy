@@ -7,6 +7,7 @@ from config import ROLE_PROMOTER, ROLE_PROMOTER_ADVANCED
 # Import DB
 from db.database import (
     add_balance,
+    charge_balance,
     claim_reward,
     deduct_balance,
     ensure_user,
@@ -84,5 +85,9 @@ def can_purchase_store_role(
     return True, "ok", role, item, balance
 
 
-def complete_store_purchase(user_id: int, price: int) -> int:
-    return deduct_user_balance(user_id, price)
+def complete_store_purchase(user_id: int, price: int) -> int | None:
+    return charge_balance(user_id, price)
+
+
+def refund_store_purchase(user_id: int, price: int) -> int:
+    return add_user_balance(user_id, price)

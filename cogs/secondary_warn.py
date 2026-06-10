@@ -25,6 +25,8 @@ from db.secondary_warn import (
     set_secondary_banned,
 )
 from utils.check_permission import has_any_role
+from utils.activity_guard import is_restore_in_progress
+from utils.punishments import adjusted_timeout_duration
 from views.secondary_warn_embed import (
     secondary_warn_debug_embed,
     secondary_warn_expire_embed,
@@ -65,22 +67,6 @@ class SecondaryWarn(commands.Cog):
         punishment = WARN_PUNISHMENTS.get(total, {})
         return str(punishment.get("label") or punishment.get("type") or NO_PUNISHMENT)
 
-    def _notice_content(
-        self,
-        member: discord.Member,
-        added: int,
-        before: int,
-        total: int,
-        reason: str,
-        punishment: str,
-    ) -> str:
-        return (
-            f"{member.mention}님에게 경고가 부여되었습니다.\n"
-            f"경고: {before}건 -> {total}건 (+{added}건)\n"
-            f"제재: {punishment}\n"
-            f"사유: {reason}"
-        )
-
     def _warnoff_content(self, user: discord.User | discord.Member, before: int, total: int) -> str:
         return f"{user.mention}님의 경고가 취소되었습니다.\n경고: {before}건 -> {total}건 (-1건)"
 
@@ -98,11 +84,34 @@ class SecondaryWarn(commands.Cog):
         if channel is None:
             try:
                 channel = await self.bot.fetch_channel(channel_id)
-            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException) as exc:
+                print(f"[secondary_warn] 채널 조회 실패 ({channel_id}): {exc}")
+                await self._send_failure_debug(f"채널 조회 실패 (`{channel_id}`): {exc}", channel_id)
                 return
 
         if hasattr(channel, "send"):
-            await channel.send(content=content, embed=embed)
+            try:
+                await channel.send(content=content, embed=embed)
+            except (discord.Forbidden, discord.HTTPException) as exc:
+                print(f"[secondary_warn] 채널 전송 실패 ({channel_id}): {exc}")
+                await self._send_failure_debug(f"채널 전송 실패 (`{channel_id}`): {exc}", channel_id)
+
+    async def _send_failure_debug(self, content: str, failed_channel_id: int) -> None:
+        if failed_channel_id == WARN_DEBUG_CHANNEL:
+            return
+
+        debug_channel = self.bot.get_channel(WARN_DEBUG_CHANNEL)
+        if debug_channel is None:
+            try:
+                debug_channel = await self.bot.fetch_channel(WARN_DEBUG_CHANNEL)
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException) as exc:
+                print(f"[secondary_warn] 디버그 채널 조회 실패 ({WARN_DEBUG_CHANNEL}): {exc}")
+                return
+        if hasattr(debug_channel, "send"):
+            try:
+                await debug_channel.send(content)
+            except (discord.Forbidden, discord.HTTPException) as exc:
+                print(f"[secondary_warn] 디버그 로그 전송 실패 ({WARN_DEBUG_CHANNEL}): {exc}")
 
     async def _send_debug(
         self,
@@ -155,7 +164,10 @@ class SecondaryWarn(commands.Cog):
 
         try:
             return await guild.fetch_member(user_id)
-        except (discord.NotFound, discord.HTTPException):
+        except discord.NotFound:
+            return None
+        except discord.HTTPException as exc:
+            await self._send_failure_debug(f"멤버 조회 실패 (`{user_id}`): {exc}", 0)
             return None
 
     async def _sync_warning_roles(self, member: discord.Member, total: int, reason: str) -> tuple[discord.Role | None, list[str]]:
@@ -211,16 +223,19 @@ class SecondaryWarn(commands.Cog):
         guild: discord.Guild,
         user: discord.User,
         member: discord.Member | None,
+        before: int,
         total: int,
     ) -> list[str]:
         errors: list[str] = []
+        previous_punishment = WARN_PUNISHMENTS.get(before, {})
         punishment_type = str(WARN_PUNISHMENTS.get(total, {}).get("type", "none")).lower()
+        previous_type = str(previous_punishment.get("type", "none")).lower()
 
         if punishment_type == "ban":
             set_secondary_banned(user.id, True)
             return errors
 
-        if punishment_type != "ban":
+        if previous_type == "ban":
             try:
                 await guild.unban(user, reason="경고 취소로 인한 차단 해제 시도")
             except discord.NotFound:
@@ -228,16 +243,33 @@ class SecondaryWarn(commands.Cog):
             except (discord.Forbidden, discord.HTTPException) as exc:
                 errors.append(f"차단 해제 실패: {exc}")
 
-        if member is not None and punishment_type != "timeout":
-            try:
-                await member.timeout(None, reason="경고 취소로 인한 타임아웃 해제 시도")
-            except (discord.Forbidden, discord.HTTPException) as exc:
-                errors.append(f"타임아웃 해제 실패: {exc}")
+        if member is None:
+            if punishment_type == "timeout":
+                errors.append("대상이 서버 멤버가 아니므로 남은 단계의 타임아웃을 적용할 수 없습니다.")
+            return errors
+
+        try:
+            if punishment_type == "timeout":
+                new_duration = timedelta(seconds=int(WARN_PUNISHMENTS[total].get("duration_seconds", 0)))
+                if previous_type == "timeout":
+                    previous_duration = timedelta(seconds=int(previous_punishment.get("duration_seconds", 0)))
+                    new_duration = adjusted_timeout_duration(member, previous_duration, new_duration)
+                await member.timeout(
+                    new_duration if new_duration > timedelta(0) else None,
+                    reason="경고 취소로 인한 제재 갱신",
+                )
+            else:
+                await member.timeout(None, reason="경고 취소로 인한 타임아웃 해제")
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            errors.append(f"타임아웃 갱신 실패: {exc}")
 
         return errors
 
     @tasks.loop(hours=24)
     async def secondary_warning_expire_loop(self) -> None:
+        if is_restore_in_progress(self.bot):
+            return
+
         expired = expire_secondary_warnings(WARN_EXPIRE_DAYS)
         if not expired:
             return
@@ -248,13 +280,20 @@ class SecondaryWarn(commands.Cog):
             user = None
             try:
                 user = await self.bot.fetch_user(user_id)
-            except (discord.NotFound, discord.HTTPException):
-                pass
+            except discord.NotFound:
+                user = None
+            except discord.HTTPException as exc:
+                await self._send_failure_debug(f"만료 경고 사용자 조회 실패 (`{user_id}`): {exc}", 0)
 
             if guild is not None:
                 member = await self._resolve_member(guild, user_id)
                 if member is not None:
-                    await self._sync_warning_roles(member, total, "경고 만료로 인한 역할 갱신")
+                    _, role_errors = await self._sync_warning_roles(member, total, "경고 만료로 인한 역할 갱신")
+                    if role_errors:
+                        await self._send_failure_debug(
+                            f"만료 경고 역할 갱신 실패 (`{user_id}`): {' / '.join(role_errors)}",
+                            0,
+                        )
 
             await self._send_channel_message(
                 WARN_NOTICE_CHANNEL,
@@ -265,8 +304,13 @@ class SecondaryWarn(commands.Cog):
     async def before_secondary_warning_expire_loop(self) -> None:
         await self.bot.wait_until_ready()
 
+    @secondary_warning_expire_loop.error
+    async def secondary_warning_expire_loop_error(self, error: Exception) -> None:
+        await self._send_failure_debug(f"경고 만료 루프 실패: {error}", 0)
+
     @app_commands.command(name="경고", description="경고를 부여하고 누적 경고 수에 맞는 역할과 제재를 적용합니다.")
     @app_commands.guilds(SECONDARY_GUILD)
+    @app_commands.default_permissions()
     @app_commands.describe(member="경고를 부여할 멤버", count="부여할 경고 수", reason="경고 사유")
     async def warn(
         self,
@@ -341,6 +385,7 @@ class SecondaryWarn(commands.Cog):
 
     @app_commands.command(name="경고취소", description="최근 경고 1건을 취소하고 경고 역할을 갱신합니다.")
     @app_commands.guilds(SECONDARY_GUILD)
+    @app_commands.default_permissions()
     @app_commands.describe(user="경고를 취소할 사용자")
     async def warnoff(self, interaction: discord.Interaction, user: discord.User) -> None:
         if interaction.guild_id != SECONDARY_GUILD_ID:
@@ -373,15 +418,39 @@ class SecondaryWarn(commands.Cog):
             )
             return
 
-        total = remove_secondary_warning(user.id, WARN_EXPIRE_DAYS)
+        total = before - 1
         member = await self._resolve_member(guild, user.id)
+        relax_errors = await self._relax_punishment_after_cancel(guild, user, member, before, total)
+        fatal_relax_errors = [
+            error for error in relax_errors
+            if not error.startswith("대상이 서버 멤버가 아니므로")
+        ]
+        if fatal_relax_errors:
+            await interaction.response.send_message(
+                "제재 조정에 실패하여 경고를 취소하지 않았습니다.\n" + "\n".join(fatal_relax_errors),
+                ephemeral=True,
+            )
+            await self._send_debug(
+                "경고취소",
+                interaction.user,
+                user,
+                "-0건",
+                before,
+                before,
+                "",
+                self._punishment_label(before),
+                None,
+                "\n".join(fatal_relax_errors),
+            )
+            return
+
+        total = remove_secondary_warning(user.id, WARN_EXPIRE_DAYS)
         role = None
         role_errors: list[str] = []
         if member is not None:
             role, role_errors = await self._sync_warning_roles(member, total, "경고 취소로 인한 역할 갱신")
 
-        relax_errors = await self._relax_punishment_after_cancel(guild, user, member, total)
-        if total < WARN_MAX and (member is not None or not relax_errors):
+        if total < WARN_MAX:
             set_secondary_banned(user.id, False)
         punishment = self._punishment_label(total) if total > 0 else NO_PUNISHMENT
         status = "\n".join(role_errors + relax_errors) or "처리 완료"
@@ -389,6 +458,12 @@ class SecondaryWarn(commands.Cog):
         notice_content = self._warnoff_content(user, before, total)
         notice_embed = secondary_warnoff_notice_embed(user, before, total, role, interaction.user)
         await interaction.response.send_message(embed=notice_embed, ephemeral=True)
+        if role_errors or relax_errors:
+            await interaction.followup.send(
+                "경고는 취소했지만 일부 역할 또는 제재 조정에 실패했습니다.\n"
+                + "\n".join(role_errors + relax_errors),
+                ephemeral=True,
+            )
         await self._send_channel_message(WARN_NOTICE_CHANNEL, content=notice_content, embed=notice_embed)
         await self._send_debug(
             "경고취소",
