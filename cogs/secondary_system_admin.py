@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config.bot2 import SECONDARY_GUILD_ID
+from config.bot2 import SECONDARY_GUILD_ID, WARN_DEBUG_CHANNEL
 from db.secondary_backups import list_secondary_backups, restore_secondary_database
 from utils.app_permissions import creator_only
 from utils.interactions import send_ephemeral
@@ -21,9 +21,22 @@ class SecondarySystemAdmin(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def _require_debug_channel(self, interaction: discord.Interaction) -> bool:
+        if interaction.channel_id == WARN_DEBUG_CHANNEL:
+            return True
+
+        await send_ephemeral(
+            interaction,
+            f"두 번째 서버 DB 조회와 변경은 <#{WARN_DEBUG_CHANNEL}>에서만 진행할 수 있습니다.",
+        )
+        return False
+
     @database_admin.command(name="backups", description="두 번째 서버 DB 백업본을 확인합니다.")
     @creator_only()
     async def backups(self, interaction: discord.Interaction) -> None:
+        if not await self._require_debug_channel(interaction):
+            return
+
         await interaction.response.defer(ephemeral=True)
         backup_paths = await self.bot.loop.run_in_executor(None, list_secondary_backups)
         if not backup_paths:
@@ -48,6 +61,9 @@ class SecondarySystemAdmin(commands.Cog):
     @app_commands.describe(backup_name="latest 또는 복구할 백업 파일명")
     @creator_only()
     async def restore(self, interaction: discord.Interaction, backup_name: str) -> None:
+        if not await self._require_debug_channel(interaction):
+            return
+
         await interaction.response.defer(ephemeral=True)
         restore_lock = get_operation_lock(self.bot, "database_restore", 0)
         if restore_lock.locked():
