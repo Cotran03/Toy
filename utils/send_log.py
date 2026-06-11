@@ -90,10 +90,15 @@ async def send_log(
     details: str = "",
     *,
     category: str | None = None,
+    channel_id: int | None = None,
 ) -> None:
     """Send a user or command log to its feature-specific channel."""
     category = normalize_log_category(category or classify_command_log(command_name), "command")
     embed = log_embed(user, command_name, details, category)
+    if channel_id is not None:
+        await _send_embed(bot, channel_id, embed, f"send_log:{category}:custom")
+        return
+
     await _send_routed_embed(bot, category, embed, f"send_log:{category}")
 
 

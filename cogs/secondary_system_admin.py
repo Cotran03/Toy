@@ -21,27 +21,32 @@ class SecondarySystemAdmin(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    async def _require_debug_channel(self, interaction: discord.Interaction) -> bool:
-        if interaction.channel_id == WARN_DEBUG_CHANNEL:
-            return True
-
-        await send_ephemeral(
-            interaction,
-            f"두 번째 서버 DB 조회와 변경은 <#{WARN_DEBUG_CHANNEL}>에서만 진행할 수 있습니다.",
+    async def _send_database_log(
+        self,
+        interaction: discord.Interaction,
+        command_name: str,
+        details: str,
+    ) -> None:
+        await send_log(
+            self.bot,
+            interaction.user,
+            command_name,
+            details,
+            channel_id=WARN_DEBUG_CHANNEL,
         )
-        return False
 
     @database_admin.command(name="backups", description="두 번째 서버 DB 백업본을 확인합니다.")
     @creator_only()
     async def backups(self, interaction: discord.Interaction) -> None:
-        if not await self._require_debug_channel(interaction):
-            return
-
         await interaction.response.defer(ephemeral=True)
         backup_paths = await self.bot.loop.run_in_executor(None, list_secondary_backups)
         if not backup_paths:
             await send_ephemeral(interaction, "두 번째 서버 DB 백업본이 없습니다.")
-            await send_log(self.bot, interaction.user, "/database backups", "두 번째 서버 DB 백업 목록 조회 / 0개")
+            await self._send_database_log(
+                interaction,
+                "/database backups",
+                "두 번째 서버 DB 백업 목록 조회 / 0개",
+            )
             return
 
         lines = ["사용 가능한 두 번째 서버 DB 백업본:"]
@@ -50,9 +55,8 @@ class SecondarySystemAdmin(commands.Cog):
             lines.append(f"...외 {len(backup_paths) - 10}개")
 
         await send_ephemeral(interaction, "\n".join(lines))
-        await send_log(
-            self.bot,
-            interaction.user,
+        await self._send_database_log(
+            interaction,
             "/database backups",
             f"두 번째 서버 DB 백업 목록 조회 / {len(backup_paths)}개",
         )
@@ -61,14 +65,15 @@ class SecondarySystemAdmin(commands.Cog):
     @app_commands.describe(backup_name="latest 또는 복구할 백업 파일명")
     @creator_only()
     async def restore(self, interaction: discord.Interaction, backup_name: str) -> None:
-        if not await self._require_debug_channel(interaction):
-            return
-
         await interaction.response.defer(ephemeral=True)
         restore_lock = get_operation_lock(self.bot, "database_restore", 0)
         if restore_lock.locked():
             await send_ephemeral(interaction, "이미 다른 DB 복구가 진행 중입니다.")
-            await send_log(self.bot, interaction.user, "/database restore", "중복 두 번째 서버 DB 복구 시도 차단")
+            await self._send_database_log(
+                interaction,
+                "/database restore",
+                "중복 두 번째 서버 DB 복구 시도 차단",
+            )
             return
 
         async with restore_lock:
@@ -82,7 +87,11 @@ class SecondarySystemAdmin(commands.Cog):
                     )
                 except Exception as exc:
                     await send_ephemeral(interaction, f"두 번째 서버 DB 복구 실패: {exc}")
-                    await send_log(self.bot, interaction.user, "/database restore", f"두 번째 서버 DB 복구 실패 / {exc}")
+                    await self._send_database_log(
+                        interaction,
+                        "/database restore",
+                        f"두 번째 서버 DB 복구 실패 / {exc}",
+                    )
                     return
             finally:
                 self.bot.database_restore_in_progress = False
@@ -92,9 +101,8 @@ class SecondarySystemAdmin(commands.Cog):
             interaction,
             f"복구본: `{restored_from.name}`\n복구 전 안전 백업: `{safety_text}`",
         )
-        await send_log(
-            self.bot,
-            interaction.user,
+        await self._send_database_log(
+            interaction,
             "/database restore",
             f"두 번째 서버 DB 복구 실행 / {restored_from.name}",
         )
