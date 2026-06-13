@@ -15,7 +15,6 @@ class SecondarySystemAdmin(commands.Cog):
         name="database",
         description="두 번째 서버 데이터베이스 백업과 복구를 관리합니다.",
         guild_ids=[SECONDARY_GUILD_ID],
-        default_permissions=discord.Permissions.none(),
     )
 
     def __init__(self, bot: commands.Bot):

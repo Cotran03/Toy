@@ -53,7 +53,6 @@ class Warn(commands.Cog):
         name="warn",
         description="사용자의 경고를 관리합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions.none(),
     )
 
     def __init__(self, bot: commands.Bot):

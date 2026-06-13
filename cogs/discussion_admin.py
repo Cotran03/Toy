@@ -39,11 +39,15 @@ SETTING_CHOICES = [
 
 
 class DiscussionAdmin(commands.Cog):
-    discussion_admin = app_commands.Group(
-        name="discussion",
-        description="토론 포럼과 횟수 제한을 관리합니다.",
+    discussion_settings = app_commands.Group(
+        name="discussion-settings",
+        description="토론 포럼과 횟수 제한 설정을 관리합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions.none(),
+    )
+    discussion_moderation = app_commands.Group(
+        name="discussion-moderation",
+        description="토론 비정상 종료와 사용자 집계를 관리합니다.",
+        guild_ids=[GUILD_ID],
     )
 
     def __init__(self, bot: commands.Bot):
@@ -72,7 +76,7 @@ class DiscussionAdmin(commands.Cog):
 
         return "\n".join(lines)
 
-    @discussion_admin.command(name="show", description="현재 토론 설정과 제외 포럼을 확인합니다.")
+    @discussion_settings.command(name="show", description="현재 토론 설정과 제외 포럼을 확인합니다.")
     @any_role(SYSTEM_ADMIN_ROLES)
     async def show(self, interaction: discord.Interaction) -> None:
         guild = interaction.guild
@@ -86,9 +90,9 @@ class DiscussionAdmin(commands.Cog):
             color=0x5865F2,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
-        await send_log(self.bot, interaction.user, "/discussion show", "토론 설정 조회")
+        await send_log(self.bot, interaction.user, "/discussion-settings show", "토론 설정 조회")
 
-    @discussion_admin.command(name="set", description="토론 또는 홍보 횟수 제한을 변경합니다.")
+    @discussion_settings.command(name="set", description="토론 또는 홍보 횟수 제한을 변경합니다.")
     @app_commands.describe(setting="변경할 제한 설정", value="새 제한 횟수")
     @app_commands.choices(setting=SETTING_CHOICES)
     @any_role(SYSTEM_ADMIN_ROLES)
@@ -105,11 +109,11 @@ class DiscussionAdmin(commands.Cog):
         await send_log(
             self.bot,
             interaction.user,
-            "/discussion set",
+            "/discussion-settings set",
             f"{key}: {old_value} -> {value}",
         )
 
-    @discussion_admin.command(name="reset", description="토론 또는 홍보 횟수 제한을 기본값으로 복원합니다.")
+    @discussion_settings.command(name="reset", description="토론 또는 홍보 횟수 제한을 기본값으로 복원합니다.")
     @app_commands.describe(setting="기본값으로 복원할 제한 설정")
     @app_commands.choices(setting=SETTING_CHOICES)
     @any_role(SYSTEM_ADMIN_ROLES)
@@ -125,11 +129,11 @@ class DiscussionAdmin(commands.Cog):
         await send_log(
             self.bot,
             interaction.user,
-            "/discussion reset",
+            "/discussion-settings reset",
             f"{key}: {old_value} -> default {default_value}",
         )
 
-    @discussion_admin.command(name="exclude-forum", description="새 포스트를 토론 집계에서 제외합니다.")
+    @discussion_settings.command(name="exclude-forum", description="새 포스트를 토론 집계에서 제외합니다.")
     @app_commands.describe(forum="토론에서 제외할 포럼")
     @any_role(SYSTEM_ADMIN_ROLES)
     async def exclude_forum(
@@ -143,7 +147,7 @@ class DiscussionAdmin(commands.Cog):
             await send_log(
                 self.bot,
                 interaction.user,
-                "/discussion exclude-forum",
+                "/discussion-settings exclude-forum",
                 f"이미 제외된 포럼: {forum.name} ({forum.id})",
             )
             return
@@ -152,9 +156,9 @@ class DiscussionAdmin(commands.Cog):
             interaction,
             f"{forum.mention}을 토론에서 제외했습니다.\n기존 포스트는 계속 토론으로 처리되고, 지금부터 생성되는 포스트만 제외됩니다.",
         )
-        await send_log(self.bot, interaction.user, "/discussion exclude-forum", f"{forum.name} ({forum.id})")
+        await send_log(self.bot, interaction.user, "/discussion-settings exclude-forum", f"{forum.name} ({forum.id})")
 
-    @discussion_admin.command(name="include-forum", description="새 포스트를 토론 집계에 포함합니다.")
+    @discussion_settings.command(name="include-forum", description="새 포스트를 토론 집계에 포함합니다.")
     @app_commands.describe(forum="토론에 포함할 포럼")
     @any_role(SYSTEM_ADMIN_ROLES)
     async def include_forum(
@@ -168,7 +172,7 @@ class DiscussionAdmin(commands.Cog):
             await send_log(
                 self.bot,
                 interaction.user,
-                "/discussion include-forum",
+                "/discussion-settings include-forum",
                 f"이미 포함된 포럼: {forum.name} ({forum.id})",
             )
             return
@@ -177,7 +181,7 @@ class DiscussionAdmin(commands.Cog):
             interaction,
             f"{forum.mention}을 토론에 포함했습니다.\n지금부터 생성되는 포스트가 토론으로 집계됩니다.",
         )
-        await send_log(self.bot, interaction.user, "/discussion include-forum", f"{forum.name} ({forum.id})")
+        await send_log(self.bot, interaction.user, "/discussion-settings include-forum", f"{forum.name} ({forum.id})")
 
     async def _close_discussion(
         self,
@@ -202,11 +206,11 @@ class DiscussionAdmin(commands.Cog):
         await send_log(
             self.bot,
             interaction.user,
-            "/discussion close",
+            "/discussion-moderation close",
             f"포스트: {channel.name} / 소유자: {owner_id} / 사유: {reason}",
         )
 
-    @discussion_admin.command(name="close", description="현재 토론을 비정상 종료하고 보상을 지급하지 않습니다.")
+    @discussion_moderation.command(name="close", description="현재 토론을 비정상 종료하고 보상을 지급하지 않습니다.")
     @app_commands.describe(reason="비정상 종료 사유")
     @any_role(USER_ADMIN_ROLES)
     async def close(self, interaction: discord.Interaction, reason: str) -> None:
@@ -218,13 +222,13 @@ class DiscussionAdmin(commands.Cog):
         end_lock = get_operation_lock(self.bot, "discussion_end", channel.id)
         if end_lock.locked():
             await send_ephemeral(interaction, "이 토론은 이미 종료 처리 중입니다.")
-            await send_log(self.bot, interaction.user, "/discussion close", f"동시 종료 시도 차단: {channel.name}")
+            await send_log(self.bot, interaction.user, "/discussion-moderation close", f"동시 종료 시도 차단: {channel.name}")
             return
 
         async with end_lock:
             await self._close_discussion(interaction, channel, reason)
 
-    @discussion_admin.command(name="set-counts", description="사용자의 토론 집계 횟수를 정확한 값으로 보정합니다.")
+    @discussion_moderation.command(name="set-counts", description="사용자의 토론 집계 횟수를 정확한 값으로 보정합니다.")
     @app_commands.describe(member="보정할 사용자", post_count="게시한 토론 수", end_count="종료한 토론 수")
     @any_role(USER_ADMIN_ROLES)
     async def set_counts(
@@ -246,7 +250,7 @@ class DiscussionAdmin(commands.Cog):
         await send_log(
             self.bot,
             interaction.user,
-            "/discussion set-counts",
+            "/discussion-moderation set-counts",
             f"대상: {member} / 게시: {stored_post_count} / 종료: {stored_end_count}",
         )
 

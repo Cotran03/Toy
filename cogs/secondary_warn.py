@@ -310,7 +310,6 @@ class SecondaryWarn(commands.Cog):
 
     @app_commands.command(name="경고", description="경고를 부여하고 누적 경고 수에 맞는 역할과 제재를 적용합니다.")
     @app_commands.guilds(SECONDARY_GUILD)
-    @app_commands.default_permissions()
     @app_commands.describe(member="경고를 부여할 멤버", count="부여할 경고 수", reason="경고 사유")
     async def warn(
         self,
@@ -385,7 +384,6 @@ class SecondaryWarn(commands.Cog):
 
     @app_commands.command(name="경고취소", description="최근 경고 1건을 취소하고 경고 역할을 갱신합니다.")
     @app_commands.guilds(SECONDARY_GUILD)
-    @app_commands.default_permissions()
     @app_commands.describe(user="경고를 취소할 사용자")
     async def warnoff(self, interaction: discord.Interaction, user: discord.User) -> None:
         if interaction.guild_id != SECONDARY_GUILD_ID:

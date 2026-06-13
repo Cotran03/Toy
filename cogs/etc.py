@@ -33,13 +33,11 @@ class Etc(commands.Cog):
         name="cleanup",
         description="채널 메시지를 관리합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions.none(),
     )
     info_admin = app_commands.Group(
         name="userinfo",
         description="사용자의 상세 서버 정보를 확인합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions.none(),
     )
 
     def __init__(self, bot: commands.Bot):
