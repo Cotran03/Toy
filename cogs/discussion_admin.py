@@ -216,7 +216,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_moderation.command(name="close", description="현재 토론을 비정상 종료하고 보상을 지급하지 않습니다.")
     @app_commands.describe(reason="비정상 종료 사유")
-    @app_commands.default_permissions(message_manage=True)
+    @app_commands.default_permissions(manage_messages=True)
     @any_role(USER_ADMIN_ROLES)
     async def close(self, interaction: discord.Interaction, reason: str) -> None:
         channel = interaction.channel
@@ -235,7 +235,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_moderation.command(name="set-counts", description="사용자의 토론 집계 횟수를 정확한 값으로 보정합니다.")
     @app_commands.describe(member="보정할 사용자", post_count="게시한 토론 수", end_count="종료한 토론 수")
-    @app_commands.default_permissions(message_manage=True)
+    @app_commands.default_permissions(manage_messages=True)
     @any_role(USER_ADMIN_ROLES)
     async def set_counts(
         self,

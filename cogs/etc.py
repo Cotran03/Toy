@@ -130,7 +130,7 @@ class Etc(commands.Cog):
 
     @info_admin.command(name="member", description="사용자의 상세 서버 정보를 확인합니다.")
     @app_commands.describe(member="조회할 사용자")
-    @app_commands.default_permissions(message_manage=True)
+    @app_commands.default_permissions(manage_messages=True)
     @any_role(ADMIN_INFO_ROLES)
     async def admin_info(self, interaction: discord.Interaction, member: discord.Member) -> None:
         await interaction.response.send_message(
