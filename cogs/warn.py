@@ -119,6 +119,7 @@ class Warn(commands.Cog):
 
     @warn_admin.command(name="add", description="사용자에게 경고를 부여하고 제재를 적용합니다.")
     @app_commands.describe(member="경고를 부여할 사용자", count="부여할 경고 수", reason="경고 사유")
+    @app_commands.default_permissions(message_manage=True)
     @any_role(WARN_ROLES)
     async def warn(
         self,
@@ -196,6 +197,7 @@ class Warn(commands.Cog):
 
     @warn_admin.command(name="remove", description="사용자의 최근 경고 1회를 취소합니다.")
     @app_commands.describe(user="경고를 취소할 사용자")
+    @app_commands.default_permissions(message_manage=True)
     @any_role(WARN_ROLES)
     async def warnoff(self, interaction: discord.Interaction, user: discord.User) -> None:
         guild = interaction.guild

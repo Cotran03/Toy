@@ -94,6 +94,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_settings.command(name="set", description="토론 또는 홍보 횟수 제한을 변경합니다.")
     @app_commands.describe(setting="변경할 제한 설정", value="새 제한 횟수")
+    @app_commands.default_permissions(manage_channels=True)
     @app_commands.choices(setting=SETTING_CHOICES)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def set_setting(
@@ -115,6 +116,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_settings.command(name="reset", description="토론 또는 홍보 횟수 제한을 기본값으로 복원합니다.")
     @app_commands.describe(setting="기본값으로 복원할 제한 설정")
+    @app_commands.default_permissions(manage_channels=True)
     @app_commands.choices(setting=SETTING_CHOICES)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def reset_setting(
@@ -135,6 +137,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_settings.command(name="exclude-forum", description="새 포스트를 토론 집계에서 제외합니다.")
     @app_commands.describe(forum="토론에서 제외할 포럼")
+    @app_commands.default_permissions(manage_channels=True)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def exclude_forum(
         self,
@@ -160,6 +163,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_settings.command(name="include-forum", description="새 포스트를 토론 집계에 포함합니다.")
     @app_commands.describe(forum="토론에 포함할 포럼")
+    @app_commands.default_permissions(manage_channels=True)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def include_forum(
         self,
@@ -212,6 +216,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_moderation.command(name="close", description="현재 토론을 비정상 종료하고 보상을 지급하지 않습니다.")
     @app_commands.describe(reason="비정상 종료 사유")
+    @app_commands.default_permissions(message_manage=True)
     @any_role(USER_ADMIN_ROLES)
     async def close(self, interaction: discord.Interaction, reason: str) -> None:
         channel = interaction.channel
@@ -230,6 +235,7 @@ class DiscussionAdmin(commands.Cog):
 
     @discussion_moderation.command(name="set-counts", description="사용자의 토론 집계 횟수를 정확한 값으로 보정합니다.")
     @app_commands.describe(member="보정할 사용자", post_count="게시한 토론 수", end_count="종료한 토론 수")
+    @app_commands.default_permissions(message_manage=True)
     @any_role(USER_ADMIN_ROLES)
     async def set_counts(
         self,
