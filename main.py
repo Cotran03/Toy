@@ -6,10 +6,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import GUILD_ID, TOKEN
-from config.bot2 import SECONDARY_GUILD_ID
 from db.backups import database_backup_loop
 from db.database import init_db
-from db.secondary_backups import secondary_database_backup_loop
 from utils.app_permissions import MissingAdminPermission
 from utils.activity_guard import RESTORE_IN_PROGRESS_MESSAGE
 from utils.interactions import send_ephemeral
@@ -76,13 +74,6 @@ class MyBot(commands.Bot):
                 lambda exc: send_system_log(self, "DB 자동 백업 실패", str(exc)),
             )
         )
-        if SECONDARY_GUILD_ID > 0:
-            self.secondary_backup_task = self.loop.create_task(
-                secondary_database_backup_loop(
-                    is_paused,
-                    lambda exc: send_system_log(self, "두 번째 서버 DB 자동 백업 실패", str(exc)),
-                )
-            )
 
         self.tree.clear_commands(guild=None)
         await self.tree.sync()
@@ -90,9 +81,6 @@ class MyBot(commands.Bot):
         guild = discord.Object(id=GUILD_ID)
         await self.tree.sync(guild=guild)
 
-        if SECONDARY_GUILD_ID > 0:
-            secondary_guild = discord.Object(id=SECONDARY_GUILD_ID)
-            await self.tree.sync(guild=secondary_guild)
 
     async def on_error(self, event_method: str, *args, **kwargs) -> None:
         error = sys.exc_info()[1]
