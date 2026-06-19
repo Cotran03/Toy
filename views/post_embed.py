@@ -22,6 +22,18 @@ def end_embed() -> discord.Embed:
         timestamp=_now(),
     )
 
+def abnomal_end_embed(description: str) -> discord.Embed:
+    return discord.Embed(
+        title="토론이 비정상적으로 종료되었습니다",
+        description=(
+            "이번 토론은 운영진에 의해 비정상적으로 종료되었습니다.\n"
+            f"사유: {description}\n"
+            "운영진의 결정에 따라 토론이 종료되었으며, 이에 대한 자세한 내용은 운영진에게 문의해주세요."
+        ),
+        color=0x95A5A6,
+        timestamp=_now(),
+    )
+
 
 def promote_channel_embed(user: discord.Member, channel: discord.Thread) -> discord.Embed:
     embed = discord.Embed(

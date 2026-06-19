@@ -19,6 +19,9 @@ from services.post_service import (
     record_post_close,
     set_user_post_counts,
 )
+
+from views.post_embed import abnomal_end_embed
+
 from utils.app_permissions import any_role
 from utils.interactions import send_ephemeral
 from utils.operation_locks import get_operation_lock
@@ -204,6 +207,7 @@ class DiscussionAdmin(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
         await channel.edit(applied_tags=new_tags, locked=True, archived=True, reason=reason)
+        await channel.send(embed=abnomal_end_embed(reason))
         owner_id = channel.owner_id or interaction.user.id
         end_count = record_post_close(owner_id)
         await send_ephemeral(interaction, f"토론을 보상 없이 비정상 종료했습니다.\n종료한 토론 수: {end_count}")
