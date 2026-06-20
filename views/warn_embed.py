@@ -41,6 +41,7 @@ def warn_notice_embed(
     embed.add_field(name="제재", value=f"`{punishment}`", inline=True)
     embed.add_field(name="처리자", value=moderator.display_name, inline=True)
     embed.add_field(name="경고 차감 예정", value=_expiration_text(30), inline=False)
+    embed.set_footer(text="이의 신청은 <#1498965988840968285>으로 혹은 <@1493613964377067570>에게 문의해주세요")
     return embed
 
 
