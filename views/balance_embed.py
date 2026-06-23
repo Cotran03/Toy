@@ -112,7 +112,7 @@ def economy_admin_notice_embed(
         color=0x5865F2,
     )
     embed.add_field(name="처리자", value=_display_name(moderator), inline=False)
-    embed.add_field(name="대상", value=member.display_name, inline=False)
+    embed.add_field(name="대상", value=f"{member.mention}", inline=False)
     embed.add_field(name="처리 내용", value=action, inline=True)
     embed.add_field(name="변동 INS", value=amount_text, inline=True)
     embed.add_field(name="사유", value=reason, inline=False)

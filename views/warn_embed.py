@@ -34,7 +34,7 @@ def warn_notice_embed(
         timestamp=_now(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="대상", value=f"{member.mention}\n`{member.id}`", inline=False)
+    embed.add_field(name="대상", value=f"{member.mention}", inline=False)
     embed.add_field(name="이번 경고 수", value=f"`{added}회`", inline=True)
     embed.add_field(name="누적 경고 수", value=f"`{total}회`", inline=True)
     embed.add_field(name="사유", value=reason, inline=False)
