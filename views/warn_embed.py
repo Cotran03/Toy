@@ -43,7 +43,10 @@ def warn_notice_embed(
     embed.add_field(name="처리자", value=moderator.display_name, inline=True)
     if note:
         embed.add_field(name="비고", value=note, inline=False)
-    embed.add_field(name="경고 차감 예정", value=_expiration_text(30), inline=False)
+    if punishment == "추방":
+        embed.add_field(name="경고 차감", value="`추방 상태에서는 자동 차감되지 않습니다.`", inline=False)
+    else:
+        embed.add_field(name="경고 차감 예정", value=_expiration_text(30), inline=False)
     embed.set_footer(text="이의 신청은 #「🎟️│건의∕문의∕신고」으로 문의해주세요")
     return embed
 

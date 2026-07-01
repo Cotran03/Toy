@@ -61,6 +61,7 @@ class EconomyAdmin(commands.Cog):
     @app_commands.command(name="economy", description="현재 경제 설정과 상점 가격을 확인합니다.")
     @app_commands.default_permissions(manage_channels=True)
     @app_commands.guilds(GUILD)
+    @any_role(SYSTEM_ADMIN_ROLES)
     async def economy(self, interaction: discord.Interaction) -> None:
         if interaction.guild is None:
             await interaction.response.send_message("서버 정보를 가져올 수 없습니다.", ephemeral=True)

@@ -8,6 +8,7 @@ from discord.ext import commands
 from config import GUILD_ID, TOKEN
 from db.backups import database_backup_loop
 from db.database import init_db
+from utils.app_command_visibility import apply_app_command_visibility
 from utils.app_permissions import MissingAdminPermission
 from utils.activity_guard import RESTORE_IN_PROGRESS_MESSAGE
 from utils.interactions import send_ephemeral
@@ -79,7 +80,15 @@ class MyBot(commands.Bot):
         await self.tree.sync()
 
         guild = discord.Object(id=GUILD_ID)
-        await self.tree.sync(guild=guild)
+        synced_commands = await self.tree.sync(guild=guild)
+        applied_visibility, visibility_failures = await apply_app_command_visibility(guild, synced_commands)
+        print(f"[명령어 권한] {len(applied_visibility)}개 명령어 표시 권한 적용")
+        if visibility_failures:
+            await send_system_log(
+                self,
+                "명령어 표시 권한 적용 실패",
+                "\n".join(visibility_failures),
+            )
 
 
     async def on_error(self, event_method: str, *args, **kwargs) -> None:

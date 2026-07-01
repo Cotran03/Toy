@@ -80,6 +80,7 @@ class DiscussionAdmin(commands.Cog):
         return "\n".join(lines)
 
     @discussion_settings.command(name="show", description="현재 토론 설정과 제외 포럼을 확인합니다.")
+    @app_commands.default_permissions(manage_channels=True)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def show(self, interaction: discord.Interaction) -> None:
         guild = interaction.guild
