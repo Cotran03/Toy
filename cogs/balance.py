@@ -338,6 +338,7 @@ class Balance(commands.Cog):
         name="balance",
         description="사용자 INS를 관리합니다.",
         guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions(manage_messages=True),
     )
 
     def __init__(self, bot: commands.Bot):

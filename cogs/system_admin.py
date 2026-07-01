@@ -15,6 +15,7 @@ class SystemAdmin(commands.Cog):
         name="database",
         description="데이터베이스 백업과 복구를 관리합니다.",
         guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions.none(),
     )
 
     def __init__(self, bot: commands.Bot):

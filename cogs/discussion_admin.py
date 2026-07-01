@@ -46,11 +46,13 @@ class DiscussionAdmin(commands.Cog):
         name="discussion-settings",
         description="토론 포럼과 횟수 제한 설정을 관리합니다.",
         guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions(manage_channels=True),
     )
     discussion_moderation = app_commands.Group(
         name="discussion-moderation",
         description="토론 비정상 종료와 사용자 집계를 관리합니다.",
         guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions(manage_messages=True),
     )
 
     def __init__(self, bot: commands.Bot):

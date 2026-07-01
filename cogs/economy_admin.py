@@ -36,6 +36,7 @@ class EconomyAdmin(commands.Cog):
         name="seteconomy",
         description="경제 설정과 상점 가격을 관리합니다.",
         guild_ids=[GUILD_ID],
+        default_permissions=discord.Permissions(manage_channels=True),
     )
 
     def __init__(self, bot: commands.Bot):
