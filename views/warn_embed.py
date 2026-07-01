@@ -21,12 +21,13 @@ def _expiration_text(days: int) -> str:
 
 
 def warn_notice_embed(
-    member: discord.Member,
+    member: discord.User | discord.Member,
     added: int,
     total: int,
     reason: str,
     punishment: str,
     moderator: discord.Member,
+    note: str | None = None,
 ) -> discord.Embed:
     embed = discord.Embed(
         title="경고 부여",
@@ -40,8 +41,10 @@ def warn_notice_embed(
     embed.add_field(name="사유", value=reason, inline=False)
     embed.add_field(name="제재", value=f"`{punishment}`", inline=True)
     embed.add_field(name="처리자", value=moderator.display_name, inline=True)
+    if note:
+        embed.add_field(name="비고", value=note, inline=False)
     embed.add_field(name="경고 차감 예정", value=_expiration_text(30), inline=False)
-    embed.set_footer(text="이의 신청은 <#1498965988840968285>으로 혹은 <@1493613964377067570>에게 문의해주세요")
+    embed.set_footer(text="이의 신청은 #「🎟️│건의∕문의∕신고」으로 문의해주세요")
     return embed
 
 
@@ -56,7 +59,7 @@ def warnoff_notice_embed(
         timestamp=_now(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="대상", value=_display_name(member), inline=False)
+    embed.add_field(name="대상", value=f"{member.mention}", inline=False)
     embed.add_field(name="차감 수", value="`1회`", inline=True)
     embed.add_field(name="누적 경고 수", value=f"`{total}회`", inline=True)
     embed.add_field(name="처리자", value=moderator.display_name, inline=True)
