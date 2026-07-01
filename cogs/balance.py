@@ -338,7 +338,6 @@ class Balance(commands.Cog):
         name="balance",
         description="사용자 INS를 관리합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions(manage_messages=True),
     )
 
     def __init__(self, bot: commands.Bot):
@@ -442,7 +441,6 @@ class Balance(commands.Cog):
 
     @balance_admin.command(name="add", description="사용자에게 INS를 추가합니다.")
     @app_commands.describe(member="INS를 추가할 사용자", amount="추가할 INS", reason="추가 사유")
-    @app_commands.default_permissions(manage_messages=True)
     @any_role(BALANCER_ROLES)
     async def add_ins(
         self,
@@ -464,7 +462,6 @@ class Balance(commands.Cog):
 
     @balance_admin.command(name="remove", description="사용자의 INS를 차감합니다.")
     @app_commands.describe(member="INS를 차감할 사용자", amount="차감할 INS", reason="차감 사유")
-    @app_commands.default_permissions(manage_messages=True)
     @any_role(BALANCER_ROLES)
     async def del_ins(
         self,
@@ -485,7 +482,6 @@ class Balance(commands.Cog):
         )
 
     @balance_admin.command(name="reset", description="사용자의 INS 잔액을 초기화합니다.")
-    @app_commands.default_permissions(manage_messages=True)
     @app_commands.describe(member="INS를 초기화할 사용자", reason="초기화 사유")
     @any_role(BALANCER_ROLES)
     async def reset_ins(

@@ -36,7 +36,6 @@ class EconomyAdmin(commands.Cog):
         name="seteconomy",
         description="경제 설정과 상점 가격을 관리합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions(manage_channels=True),
     )
 
     def __init__(self, bot: commands.Bot):
@@ -60,7 +59,6 @@ class EconomyAdmin(commands.Cog):
         return "\n".join(lines)
 
     @app_commands.command(name="economy", description="현재 경제 설정과 상점 가격을 확인합니다.")
-    @app_commands.default_permissions(manage_channels=True)
     @app_commands.guilds(GUILD)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def economy(self, interaction: discord.Interaction) -> None:
@@ -78,7 +76,6 @@ class EconomyAdmin(commands.Cog):
 
     @economy_admin.command(name="set", description="보상, 차감, 비용 설정값을 변경합니다.")
     @app_commands.describe(setting="변경할 경제 설정", value="새 설정값")
-    @app_commands.default_permissions(manage_channels=True)
     @app_commands.choices(setting=SETTING_CHOICES)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def economy_set(
@@ -100,7 +97,6 @@ class EconomyAdmin(commands.Cog):
 
     @economy_admin.command(name="reset", description="경제 설정값을 기본값으로 복원합니다.")
     @app_commands.describe(setting="기본값으로 복원할 경제 설정")
-    @app_commands.default_permissions(manage_channels=True)
     @app_commands.choices(setting=SETTING_CHOICES)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def economy_reset(
@@ -121,7 +117,6 @@ class EconomyAdmin(commands.Cog):
 
     @economy_admin.command(name="store", description="상점 역할 가격을 변경합니다.")
     @app_commands.describe(role="가격을 변경할 상점 역할", price="새 가격")
-    @app_commands.default_permissions(manage_channels=True)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def economy_store(
         self,
@@ -147,7 +142,6 @@ class EconomyAdmin(commands.Cog):
 
     @economy_admin.command(name="reset-store", description="상점 역할 가격을 기본값으로 복원합니다.")
     @app_commands.describe(role="가격을 기본값으로 복원할 상점 역할")
-    @app_commands.default_permissions(manage_channels=True)
     @any_role(SYSTEM_ADMIN_ROLES)
     async def economy_reset_store(
         self,

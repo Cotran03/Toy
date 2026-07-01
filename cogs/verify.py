@@ -109,7 +109,6 @@ class Verify(commands.Cog):
         self.bot.add_view(VerifyView(self.bot))
 
     @app_commands.command(name="verify", description="인증 채널에 인증 버튼 메시지를 전송합니다.")
-    @app_commands.default_permissions(mention_everyone=True)
     @app_commands.guilds(GUILD)
     @any_role(GENERAL_ADMIN_ROLES)
     async def sendverify(self, interaction: discord.Interaction) -> None:

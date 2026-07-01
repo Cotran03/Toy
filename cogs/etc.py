@@ -33,13 +33,11 @@ class Etc(commands.Cog):
         name="cleanup",
         description="채널 메시지를 관리합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions(mention_everyone=True),
     )
     info_admin = app_commands.Group(
         name="userinfo",
         description="사용자의 상세 서버 정보를 확인합니다.",
         guild_ids=[GUILD_ID],
-        default_permissions=discord.Permissions(manage_messages=True),
     )
 
     def __init__(self, bot: commands.Bot):
@@ -80,7 +78,6 @@ class Etc(commands.Cog):
 
     @cleanup_admin.command(name="clear", description="현재 채널의 최근 메시지를 삭제합니다.")
     @app_commands.describe(amount="삭제할 메시지 수")
-    @app_commands.default_permissions(mention_everyone=True)
     @any_role(CLEAR_ROLES)
     async def clear(
         self,
@@ -132,7 +129,6 @@ class Etc(commands.Cog):
 
     @info_admin.command(name="member", description="사용자의 상세 서버 정보를 확인합니다.")
     @app_commands.describe(member="조회할 사용자")
-    @app_commands.default_permissions(manage_messages=True)
     @any_role(ADMIN_INFO_ROLES)
     async def admin_info(self, interaction: discord.Interaction, member: discord.Member) -> None:
         await interaction.response.send_message(
